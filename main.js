@@ -107,16 +107,35 @@ function createRoads(size, spacing) {
     
     const hRoad = new THREE.Mesh(hRoadGeo, roadMat);
     hRoad.rotation.x = -Math.PI / 2;
-    hRoad.position.y = 0.01;
+    hRoad.position.y = 0.05; // Slightly above ground
     hRoad.receiveShadow = true;
     scene.add(hRoad);
 
     const vRoad = new THREE.Mesh(hRoadGeo, roadMat);
     vRoad.rotation.x = -Math.PI / 2;
     vRoad.rotation.z = Math.PI / 2;
-    vRoad.position.y = 0.012;
+    vRoad.position.y = 0.06;
     vRoad.receiveShadow = true;
     scene.add(vRoad);
+
+    // Road Markings (Dashed lines)
+    const markGeo = new THREE.PlaneGeometry(0.8, 0.1);
+    const markMat = new THREE.MeshBasicMaterial({ color: PALETTE.roadMark });
+    
+    for (let i = -size/2 * spacing; i < size/2 * spacing; i += 2) {
+        // Horizontal road marks
+        const hMark = new THREE.Mesh(markGeo, markMat);
+        hMark.rotation.x = -Math.PI / 2;
+        hMark.position.set(i + 0.5, 0.07, 0);
+        scene.add(hMark);
+
+        // Vertical road marks
+        const vMark = new THREE.Mesh(markGeo, markMat);
+        vMark.rotation.x = -Math.PI / 2;
+        vMark.rotation.z = Math.PI / 2;
+        vMark.position.set(0, 0.08, i + 0.5);
+        scene.add(vMark);
+    }
 }
 
 function createBuilding(repo, x, z) {
@@ -178,6 +197,28 @@ function createBuilding(repo, x, z) {
         const ball = new THREE.Mesh(ballGeo, spireMat);
         ball.position.y = height + 1.1;
         group.add(ball);
+
+        // Rotating Star/Diamond
+        const starGeo = new THREE.OctahedronGeometry(0.2, 0);
+        const star = new THREE.Mesh(starGeo, spireMat);
+        star.position.y = height + 1.6;
+        group.add(star);
+        
+        // Add to animation
+        gsap.to(star.rotation, {
+            y: Math.PI * 2,
+            duration: 2,
+            repeat: -1,
+            ease: "none"
+        });
+        
+        gsap.to(star.position, {
+            y: "+=0.2",
+            duration: 1,
+            repeat: -1,
+            yoyo: true,
+            ease: "sine.inOut"
+        });
     }
 
     // Data for raycasting
@@ -185,7 +226,8 @@ function createBuilding(repo, x, z) {
         isBuilding: true, 
         name: repo.name, 
         language: repo.language || 'Unknown', 
-        stars: repo.stargazers_count 
+        stars: repo.stargazers_count,
+        url: repo.html_url
     };
 
     group.scale.y = 0.01;
@@ -245,7 +287,7 @@ function createTree(x, z) {
     });
 }
 
-function createVehicle() {
+function createVehicle(isVertical = false) {
     const colors = [0xff5252, 0x448aff, 0xffeb3b, 0x4caf50];
     const color = colors[Math.floor(Math.random() * colors.length)];
     
@@ -276,20 +318,31 @@ function createVehicle() {
         group.add(wheel);
     }
 
-    group.position.set((Math.random()-0.5) * 40, 0, (Math.random()-0.5) * 40);
-    scene.add(group);
-
-    // Simple movement
-    const dir = Math.random() > 0.5 ? 'x' : 'z';
-    const speed = 0.05 + Math.random() * 0.1;
-    
-    function animate() {
-        group.position[dir] += speed;
-        if (group.position[dir] > 25) group.position[dir] = -25;
-        requestAnimationFrame(animate);
+    if (isVertical) {
+        group.rotation.y = Math.PI / 2;
+        group.position.set(0, 0.1, (Math.random()-0.5) * 40);
+    } else {
+        group.position.set((Math.random()-0.5) * 40, 0.1, 0);
     }
-    // animate(); // Disabled for now to keep performance high
+    
+    scene.add(group);
+    meshes.push(group);
+
+    // Movement
+    const speed = (0.05 + Math.random() * 0.1) * (Math.random() > 0.5 ? 1 : -1);
+    
+    return {
+        mesh: group,
+        update: () => {
+            const dir = isVertical ? 'z' : 'x';
+            group.position[dir] += speed;
+            if (group.position[dir] > 25) group.position[dir] = -25;
+            if (group.position[dir] < -25) group.position[dir] = 25;
+        }
+    };
 }
+
+let activeVehicles = [];
 
 // -- API LOGIC --
 
@@ -308,7 +361,8 @@ async function fetchRepos(username) {
             name: r.name,
             language: r.language,
             stargazers_count: r.stargazers_count,
-            commits: Math.floor(Math.random() * 100) + r.stargazers_count // Mock activity
+            commits: Math.floor(Math.random() * 100) + r.stargazers_count, // Mock activity
+            html_url: r.html_url
         })),
         user: {
             username: username,
@@ -337,9 +391,11 @@ function onMouseMove(event) {
             document.getElementById('tooltip-lang').textContent = `Language: ${obj.userData.language}`;
             document.getElementById('tooltip-stars').textContent = `Stars: ${obj.userData.stars}`;
             
-            // Highlight
-            if (obj.material.emissive) {
-                obj.material.emissive.setHex(0x333333);
+            // Highlight & Scale
+            if (!obj.userData.hovered) {
+                obj.userData.hovered = true;
+                gsap.to(obj.parent.scale, { x: 1.1, z: 1.1, duration: 0.3, ease: "power2.out" });
+                if (obj.material.emissive) obj.material.emissive.setHex(0x333333);
             }
             
             found = true;
@@ -349,12 +405,33 @@ function onMouseMove(event) {
 
     if (!found) {
         tooltip.classList.add('hidden');
-        // Reset emissive for all
+        canvas.style.cursor = 'default';
+        // Reset all
         scene.traverse(child => {
-            if (child.isMesh && child.material.emissive) {
-                child.material.emissive.setHex(0x000000);
+            if (child.isMesh && child.userData.isBuilding && child.userData.hovered) {
+                child.userData.hovered = false;
+                gsap.to(child.parent.scale, { x: 1, z: 1, duration: 0.3, ease: "power2.out" });
+                if (child.material.emissive) child.material.emissive.setHex(0x000000);
             }
         });
+    } else {
+        canvas.style.cursor = 'pointer';
+    }
+}
+
+function onClick(event) {
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObjects(scene.children, true);
+    
+    for (let i = 0; i < intersects.length; i++) {
+        const obj = intersects[i].object;
+        if (obj.userData && obj.userData.isBuilding && obj.userData.url) {
+            window.open(obj.userData.url, '_blank');
+            break;
+        }
     }
 }
 
@@ -400,10 +477,28 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
             }
         });
 
-        // Scatter more trees randomly
-        for(let i=0; i<30; i++) {
-            createTree((Math.random()-0.5)*40, (Math.random()-0.5)*40);
+        // Scatter trees randomly outside center roads
+        for(let i=0; i<40; i++) {
+            const tx = (Math.random()-0.5)*45;
+            const tz = (Math.random()-0.5)*45;
+            if (Math.abs(tx) > 2 && Math.abs(tz) > 2) { // Avoid roads
+                createTree(tx, tz);
+            }
         }
+
+        // Create Vehicles
+        activeVehicles = [];
+        for (let i = 0; i < 4; i++) {
+            activeVehicles.push(createVehicle(false)); // Horizontal
+            activeVehicles.push(createVehicle(true));  // Vertical
+        }
+
+        isCinematic = false;
+        gsap.to(camera.position, {
+            x: 50, y: 50, z: 50,
+            duration: 2,
+            ease: "power3.inOut"
+        });
 
         loginScreen.classList.add('hidden');
         hud.classList.remove('hidden');
@@ -435,16 +530,43 @@ window.addEventListener('resize', () => {
 });
 
 window.addEventListener('mousemove', onMouseMove);
+window.addEventListener('click', onClick);
 
 // Final Polish: Initial Ground setup (empty world)
 createGround();
-for(let i=0; i<15; i++) {
-    createTree((Math.random()-0.5)*40, (Math.random()-0.5)*40);
+for(let i=0; i<30; i++) {
+    const tx = (Math.random()-0.5)*50;
+    const tz = (Math.random()-0.5)*50;
+    if (Math.abs(tx) > 2 && Math.abs(tz) > 2) createTree(tx, tz);
 }
+
+// Cinematic Login Animation
+let isCinematic = true;
+const cinematicTimeline = gsap.to(camera.position, {
+    x: 70 * Math.cos(0),
+    z: 70 * Math.sin(0),
+    duration: 20,
+    repeat: -1,
+    ease: "none",
+    onUpdate: () => {
+        if (!isCinematic) return;
+        const time = Date.now() * 0.0001;
+        camera.position.x = 60 * Math.cos(time);
+        camera.position.z = 60 * Math.sin(time);
+        camera.lookAt(0, 0, 0);
+    }
+});
 
 function animate() {
     requestAnimationFrame(animate);
-    controls.update();
+    
+    if (!isCinematic) {
+        controls.update();
+    }
+    
+    // Update vehicles
+    activeVehicles.forEach(v => v.update());
+    
     renderer.render(scene, camera);
 }
 
