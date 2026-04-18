@@ -8,73 +8,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Outfit:wght@400;600;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
 </head>
 <body>
-    <div id="login-screen">
-        <div class="glass-card">
-            <div class="logo">
-                <div class="logo-icon"></div>
-                <h1>GitHub <span>World</span></h1>
-            </div>
-            <p>Enter your username to generate your unique 3D isometric universe.</p>
-            <form id="login-form">
-                <div class="input-group">
-                    <input type="text" id="username" placeholder="GitHub Username" required autocomplete="off">
-                </div>
-                <button type="submit" id="enter-btn">Enter World</button>
-            </form>
-        </div>
-    </div>
-
-    <div id="hud" class="hidden">
-        <div class="top-left">
-            <div class="user-info card">
-                <img id="user-avatar" src="" alt="Avatar" class="avatar">
-                <div class="stats">
-                    <h2 id="hud-username">@username</h2>
-                    <div class="stats-grid">
-                        <div class="stat"><span class="label">Repos:</span> <span id="repo-count">0</span></div>
-                        <div class="stat"><span class="label">Stars:</span> <span id="star-count">0</span></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="bottom-center">
-            <div class="legend card">
-                <div class="legend-item"><span class="color js"></span> JS</div>
-                <div class="legend-item"><span class="color py"></span> Python</div>
-                <div class="legend-item"><span class="color go"></span> Go</div>
-                <div class="legend-item"><span class="color rust"></span> Rust</div>
-                <div class="legend-item"><span class="color ts"></span> TS</div>
-                <div class="legend-item"><span class="color other"></span> Other</div>
-            </div>
-        </div>
-
-        <div id="tooltip" class="tooltip hidden">
-            <h3 id="tooltip-name">Repo Name</h3>
-            <div class="tooltip-meta">
-                <p id="tooltip-lang">Language: JS</p>
-                <p id="tooltip-stars">Stars: 100</p>
-            </div>
-        </div>
-        
-        <button id="reset-cam" class="card mini-btn">Reset View</button>
-    </div>
-
-    <div id="loading" class="hidden">
-        <div class="loader-container">
-            <div class="loader"></div>
-            <p>Constructing World...</p>
-        </div>
-    </div>
-
-    <canvas id="world-canvas"></canvas>
-
-    <script type="module" src="main.js"></script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>
