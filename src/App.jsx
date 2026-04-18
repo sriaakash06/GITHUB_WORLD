@@ -10,6 +10,7 @@ function App() {
   const [repos, setRepos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isCinematic, setIsCinematic] = useState(true);
+  const [hoveredRepo, setHoveredRepo] = useState(null);
 
   const fetchUserData = async (username) => {
     setLoading(true);
@@ -43,6 +44,13 @@ function App() {
     }
   };
 
+  const resetCamera = () => {
+    // We'll use a custom event or a shared state if needed, 
+    // but for R3F, we can just toggle a state or use a ref.
+    // For now, let's just trigger a change that Experience can react to.
+    window.dispatchEvent(new CustomEvent('reset-camera'));
+  };
+
   return (
     <div className="app-container">
       {!user && <LoginScreen onLogin={fetchUserData} />}
@@ -55,13 +63,14 @@ function App() {
         id="world-canvas"
       >
         <color attach="background" args={['#0a0a0f']} />
-        <Experience repos={repos} isCinematic={isCinematic} />
+        <Experience repos={repos} isCinematic={isCinematic} setHoveredRepo={setHoveredRepo} />
       </Canvas>
 
-      {user && <HUD user={user} />}
+      {user && <HUD user={user} onResetCamera={resetCamera} hoveredRepo={hoveredRepo} />}
       {loading && <LoadingScreen />}
     </div>
   );
+
 }
 
 export default App;

@@ -30,6 +30,11 @@ body {
     height: 100vh;
 }
 
+#root, .app-container {
+    height: 100%;
+    width: 100%;
+}
+
 h1, h2, h3 {
     font-family: 'Outfit', sans-serif;
 }
