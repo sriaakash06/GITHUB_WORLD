@@ -1,30 +1,29 @@
 import React, { useMemo } from 'react';
 import { PALETTE } from './Constants';
-import * as THREE from 'three';
 
 export function Tree({ position }) {
-  const type = useMemo(() => Math.random() > 0.5 ? 'cone' : 'sphere', []);
-  const color = useMemo(() => PALETTE.autumn[Math.floor(Math.random() * PALETTE.autumn.length)], []);
-  const height = useMemo(() => 1 + Math.random() * 1.5, []);
+  const height = useMemo(() => 1.2 + Math.random() * 0.8, []);
+  const branchColor = useMemo(() => PALETTE.grass[Math.floor(Math.random() * PALETTE.grass.length)], []);
 
   return (
     <group position={position}>
-      <mesh position={[0, 0.3, 0]} castShadow>
-        <cylinderGeometry args={[0.1, 0.15, 0.6, 6]} />
-        <meshPhongMaterial color="#4e342e" flatShading />
+      {/* Trunk */}
+      <mesh position={[0, height / 4, 0]} castShadow>
+        <boxGeometry args={[0.2, height / 2, 0.2]} />
+        <meshStandardMaterial color={PALETTE.woodDark} roughness={0.9} />
       </mesh>
       
-      {type === 'cone' ? (
-        <mesh position={[0, 0.6 + height / 2, 0]} castShadow>
-          <coneGeometry args={[0.6, height, 6]} />
-          <meshPhongMaterial color={color} flatShading />
+      {/* Leaves / Top */}
+      <group position={[0, height / 2 + 0.3, 0]}>
+        <mesh castShadow>
+          <boxGeometry args={[0.8, 0.8, 0.8]} />
+          <meshStandardMaterial color={branchColor} roughness={0.8} />
         </mesh>
-      ) : (
-        <mesh position={[0, 1, 0]} scale={[1, 1.2, 1]} castShadow>
-          <sphereGeometry args={[0.5, 6, 6]} />
-          <meshPhongMaterial color={color} flatShading />
+        <mesh position={[0, 0.4, 0]} scale={0.7} castShadow>
+          <boxGeometry args={[0.8, 0.8, 0.8]} />
+          <meshStandardMaterial color={branchColor} roughness={0.8} />
         </mesh>
-      )}
+      </group>
     </group>
   );
 }

@@ -1,91 +1,84 @@
-import React, { useRef, useMemo, useState } from 'react';
-import { useFrame } from '@react-three/fiber';
-import { PALETTE, LANG_COLORS } from './Constants';
-import * as THREE from 'three';
-import gsap from 'gsap';
+import React, { useMemo, useState } from 'react';
+import { PALETTE, GET_STYLIZED_COLOR_FOR_LANG } from './Constants';
 
-export function Building({ repo, position, onHover }) {
-  const groupRef = useRef();
-  const starRef = useRef();
+export const Building = ({ repo, position, rotation, onHover, onUnhover }) => {
   const [hovered, setHovered] = useState(false);
   
-  const height = useMemo(() => Math.log2((repo.commits || 10) + 1) * 2, [repo]);
-  const width = useMemo(() => 1.5 + Math.random() * 0.5, []);
-  const roofColor = LANG_COLORS[repo.language] || LANG_COLORS['Default'];
-
-  // Animation on mount
-  React.useEffect(() => {
-    if (groupRef.current) {
-      groupRef.current.scale.y = 0.01;
-      gsap.to(groupRef.current.scale, {
-        y: 1,
-        duration: 1.5,
-        delay: Math.random() * 2,
-        ease: "elastic.out(1, 0.5)"
-      });
-    }
-  }, []);
-
-  useFrame((state) => {
-    if (starRef.current) {
-        starRef.current.rotation.y += 0.02;
-        starRef.current.position.y = height + 1.6 + Math.sin(state.clock.getElapsedTime() * 2) * 0.1;
-    }
-  });
+  // Normalize color based on language
+  const mainColor = useMemo(() => GET_STYLIZED_COLOR_FOR_LANG(repo.language), [repo.language]);
+  
+  // Height based on stars (logarithmic)
+  const height = useMemo(() => Math.max(3, Math.log10(repo.stargazers_count + 1) * 4), [repo.stargazers_count]);
+  
+  // Number of windows based on height
+  const windowsCount = Math.floor(height);
 
   return (
-    <group ref={groupRef} position={position}>
-      {/* Body */}
-      <mesh 
-        castShadow 
-        receiveShadow 
-        position={[0, height / 2, 0]}
-        onPointerOver={(e) => {
-            e.stopPropagation();
-            setHovered(true);
-            onHover(repo);
-            document.body.style.cursor = 'pointer';
-        }}
-        onPointerOut={() => {
-            setHovered(false);
-            onHover(null);
-            document.body.style.cursor = 'default';
-        }}
-        onClick={() => window.open(repo.html_url, '_blank')}
-      >
-        <boxGeometry args={[width, height, width]} />
-        <meshPhongMaterial 
-            color={PALETTE.building} 
-            flatShading 
-            emissive={hovered ? '#333333' : '#000000'}
-        />
+    <group 
+      position={position} 
+      rotation={rotation}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        setHovered(true);
+        onHover();
+      }}
+      onPointerOut={() => {
+        setHovered(false);
+        onUnhover();
+      }}
+      scale={hovered ? 1.05 : 1}
+    >
+      {/* Stone Foundation */}
+      <mesh position={[0, 0.5, 0]} castShadow receiveShadow>
+        <boxGeometry args={[1.6, 1.2, 1.6]} />
+        <meshStandardMaterial color={PALETTE.stone} />
       </mesh>
 
-      {/* Roof */}
-      <mesh position={[0, height + 0.1, 0]}>
-        <boxGeometry args={[width + 0.1, 0.2, width + 0.1]} />
-        <meshPhongMaterial color={roofColor} flatShading />
+      {/* Main Building Body */}
+      <mesh position={[0, height / 2 + 1, 0]} castShadow receiveShadow>
+        <boxGeometry args={[1.4, height, 1.4]} />
+        <meshStandardMaterial color={PALETTE.building} roughness={0.6} />
       </mesh>
 
-      {/* Spire/Star if high stars */}
-      {repo.stargazers_count > 50 && (
-        <group>
-          <mesh position={[0, height + 0.6, 0]}>
-            <coneGeometry args={[0.1, 1, 4]} />
-            <meshPhongMaterial color={PALETTE.gold} flatShading />
+      {/* Windows Layer */}
+      {[...Array(windowsCount)].map((_, i) => (
+        <group key={i} position={[0, 2 + i * 1, 0]}>
+          {/* Front Window */}
+          <mesh position={[0, 0, 0.71]}>
+            <planeGeometry args={[0.4, 0.5]} />
+            <meshStandardMaterial color={PALETTE.window} emissive={PALETTE.window} emissiveIntensity={0.5} />
           </mesh>
-          <mesh position={[0, height + 1.1, 0]}>
-            <sphereGeometry args={[0.15, 6, 6]} />
-            <meshPhongMaterial color={PALETTE.gold} flatShading />
-          </mesh>
-          <mesh ref={starRef} position={[0, height + 1.6, 0]}>
-            <octahedronGeometry args={[0.2, 0]} />
-            <meshPhongMaterial color={PALETTE.gold} flatShading />
+          {/* Back Window */}
+          <mesh position={[0, 0, -0.71]} rotation={[0, Math.PI, 0]}>
+            <planeGeometry args={[0.4, 0.5]} />
+            <meshStandardMaterial color={PALETTE.window} emissive={PALETTE.window} emissiveIntensity={0.5} />
           </mesh>
         </group>
-      )}
+      ))}
 
-      {/* Windows could be added here as well, omitting for brevity in first pass but can add if requested */}
+      {/* Roof Base (Trim) */}
+      <mesh position={[0, height + 1.1, 0]} castShadow>
+        <boxGeometry args={[1.7, 0.3, 1.7]} />
+        <meshStandardMaterial color={PALETTE.trim} />
+      </mesh>
+
+      {/* Sloped Roof */}
+      <mesh position={[0, height + 1.8, 0]} rotation={[0, Math.PI / 4, 0]} castShadow>
+        <coneGeometry args={[1.5, 1.5, 4]} />
+        <meshStandardMaterial color={mainColor} roughness={0.4} metalness={0.2} />
+      </mesh>
+
+      {/* Flag or Landmark for popular repos */}
+      {repo.stargazers_count > 1000 && (
+        <mesh position={[0, height + 2.8, 0]} castShadow>
+          <cylinderGeometry args={[0.05, 0.05, 1, 8]} />
+          <meshStandardMaterial color={PALETTE.black} />
+          <mesh position={[0.2, 0.4, 0]}>
+            <boxGeometry args={[0.4, 0.3, 0.05]} />
+            <meshStandardMaterial color={mainColor} />
+          </mesh>
+        </mesh>
+      )}
     </group>
   );
-}
+};

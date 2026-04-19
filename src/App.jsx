@@ -45,9 +45,6 @@ function App() {
   };
 
   const resetCamera = () => {
-    // We'll use a custom event or a shared state if needed, 
-    // but for R3F, we can just toggle a state or use a ref.
-    // For now, let's just trigger a change that Experience can react to.
     window.dispatchEvent(new CustomEvent('reset-camera'));
   };
 
@@ -57,9 +54,8 @@ function App() {
       
       <Canvas
         shadows
-        orthographic
-        camera={{ position: [50, 50, 50], zoom: 20 }}
-        gl={{ antialias: true }}
+        camera={{ position: [40, 40, 40], fov: 40 }}
+        gl={{ antialias: true, stencil: false, depth: true }}
         id="world-canvas"
       >
         <color attach="background" args={['#0a0a0f']} />
