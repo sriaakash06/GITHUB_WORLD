@@ -54,18 +54,19 @@ function App() {
       
       <Canvas
         shadows
-        camera={{ position: [40, 40, 40], fov: 40 }}
-        gl={{ antialias: true, stencil: false, depth: true }}
+        camera={{ position: [60, 60, 60], fov: 35 }}
+        gl={{ antialias: true }}
         id="world-canvas"
       >
-        <color attach="background" args={['#0a0a0f']} />
+        <color attach="background" args={['#86c18a']} />
         <Experience repos={repos} isCinematic={isCinematic} setHoveredRepo={setHoveredRepo} />
       </Canvas>
 
-      {user && <HUD user={user} onResetCamera={resetCamera} hoveredRepo={hoveredRepo} />}
+      {user && <HUD user={user} />}
       {loading && <LoadingScreen />}
     </div>
   );
+
 
 }
 

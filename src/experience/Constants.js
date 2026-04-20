@@ -1,30 +1,34 @@
 export const PALETTE = {
-    grass: ['#7ba342', '#86af49', '#95c057'],
-    stone: '#b0ada3',
-    stoneDark: '#4e4e4e',
-    wood: '#a68069',
-    building: '#f4f1ea', // Off-white for walls
-    trim: '#d9d2c5',
-    roof: '#e2725b', // Terracotta
-    window: '#fce38a',
-    gold: '#ffd700',
-    road: '#555555',
+    grass: ['#86c18a', '#96d19a', '#a6e1aa'],
+    grassDark: '#5e9462',
+    stone: '#e5e5e5',
+    stoneDark: '#333333',
+    wood: '#795548',
+    building: '#ffffff',
+    trim: '#dcdcdc',
+    roof: '#ff5722',
+    window: '#e0f7fa',
+    door: '#5d4037',
+    road: '#37474f',
+    roadLine: '#ffffff',
+    cloud: '#ffffff',
     black: '#111111'
 };
 
 export const LANG_COLORS = {
     'JavaScript': '#f7df1e',
-    'Python': '#4584b6',
+    'Python': '#3776ab',
     'Go': '#00add8',
-    'Rust': '#ef642a',
+    'Rust': '#dea584',
     'TypeScript': '#3178c6',
     'C++': '#f34b7d',
     'Java': '#b07219',
     'HTML': '#e34c26',
-    'CSS': '#563d7c',
-    'Default': '#9e9e9e'
+    'CSS': '#1572b6',
+    'Default': '#cfd8dc'
 };
 
 export const GET_STYLIZED_COLOR_FOR_LANG = (lang) => {
     return LANG_COLORS[lang] || LANG_COLORS['Default'];
 };
+

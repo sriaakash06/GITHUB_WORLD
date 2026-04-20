@@ -4,19 +4,16 @@ import { PALETTE, GET_STYLIZED_COLOR_FOR_LANG } from './Constants';
 export const Building = ({ repo, position, rotation, onHover, onUnhover }) => {
   const [hovered, setHovered] = useState(false);
   
-  // Normalize color based on language
-  const mainColor = useMemo(() => GET_STYLIZED_COLOR_FOR_LANG(repo.language), [repo.language]);
+  const roofColor = useMemo(() => GET_STYLIZED_COLOR_FOR_LANG(repo.language), [repo.language]);
   
-  // Height based on stars (logarithmic)
-  const height = useMemo(() => Math.max(3, Math.log10(repo.stargazers_count + 1) * 4), [repo.stargazers_count]);
-  
-  // Number of windows based on height
-  const windowsCount = Math.floor(height);
+  // Height variation
+  const scale = useMemo(() => 0.8 + (Math.log10(repo.stargazers_count + 1) * 0.2), [repo.stargazers_count]);
 
   return (
     <group 
       position={position} 
       rotation={rotation}
+      scale={hovered ? scale * 1.1 : scale}
       onPointerOver={(e) => {
         e.stopPropagation();
         setHovered(true);
@@ -26,59 +23,47 @@ export const Building = ({ repo, position, rotation, onHover, onUnhover }) => {
         setHovered(false);
         onUnhover();
       }}
-      scale={hovered ? 1.05 : 1}
     >
-      {/* Stone Foundation */}
-      <mesh position={[0, 0.5, 0]} castShadow receiveShadow>
-        <boxGeometry args={[1.6, 1.2, 1.6]} />
-        <meshStandardMaterial color={PALETTE.stone} />
+      {/* Main Body (Walls) */}
+      <mesh position={[0, 1, 0]} castShadow receiveShadow>
+        <boxGeometry args={[2, 2, 2]} />
+        <meshStandardMaterial color={PALETTE.building} />
       </mesh>
 
-      {/* Main Building Body */}
-      <mesh position={[0, height / 2 + 1, 0]} castShadow receiveShadow>
-        <boxGeometry args={[1.4, height, 1.4]} />
-        <meshStandardMaterial color={PALETTE.building} roughness={0.6} />
+      {/* Roof */}
+      <mesh position={[0, 2.5, 0]} castShadow>
+        <coneGeometry args={[1.8, 1.5, 4]} rotation={[0, Math.PI / 4, 0]} />
+        <meshStandardMaterial color={roofColor} />
       </mesh>
 
-      {/* Windows Layer */}
-      {[...Array(windowsCount)].map((_, i) => (
-        <group key={i} position={[0, 2 + i * 1, 0]}>
-          {/* Front Window */}
-          <mesh position={[0, 0, 0.71]}>
-            <planeGeometry args={[0.4, 0.5]} />
-            <meshStandardMaterial color={PALETTE.window} emissive={PALETTE.window} emissiveIntensity={0.5} />
-          </mesh>
-          {/* Back Window */}
-          <mesh position={[0, 0, -0.71]} rotation={[0, Math.PI, 0]}>
-            <planeGeometry args={[0.4, 0.5]} />
-            <meshStandardMaterial color={PALETTE.window} emissive={PALETTE.window} emissiveIntensity={0.5} />
-          </mesh>
-        </group>
-      ))}
-
-      {/* Roof Base (Trim) */}
-      <mesh position={[0, height + 1.1, 0]} castShadow>
-        <boxGeometry args={[1.7, 0.3, 1.7]} />
-        <meshStandardMaterial color={PALETTE.trim} />
+      {/* Door */}
+      <mesh position={[0, 0.5, 1.01]}>
+        <boxGeometry args={[0.5, 0.8, 0.05]} />
+        <meshStandardMaterial color={PALETTE.door} />
       </mesh>
 
-      {/* Sloped Roof */}
-      <mesh position={[0, height + 1.8, 0]} rotation={[0, Math.PI / 4, 0]} castShadow>
-        <coneGeometry args={[1.5, 1.5, 4]} />
-        <meshStandardMaterial color={mainColor} roughness={0.4} metalness={0.2} />
+      {/* Windows */}
+      <mesh position={[-0.6, 1.2, 1.01]}>
+        <boxGeometry args={[0.4, 0.4, 0.05]} />
+        <meshStandardMaterial color={PALETTE.window} />
+      </mesh>
+      <mesh position={[0.6, 1.2, 1.01]}>
+        <boxGeometry args={[0.4, 0.4, 0.05]} />
+        <meshStandardMaterial color={PALETTE.window} />
       </mesh>
 
-      {/* Flag or Landmark for popular repos */}
-      {repo.stargazers_count > 1000 && (
-        <mesh position={[0, height + 2.8, 0]} castShadow>
-          <cylinderGeometry args={[0.05, 0.05, 1, 8]} />
-          <meshStandardMaterial color={PALETTE.black} />
-          <mesh position={[0.2, 0.4, 0]}>
-            <boxGeometry args={[0.4, 0.3, 0.05]} />
-            <meshStandardMaterial color={mainColor} />
-          </mesh>
-        </mesh>
-      )}
+      {/* Chimney */}
+      <mesh position={[0.6, 2.5, 0]} castShadow>
+        <boxGeometry args={[0.3, 1, 0.3]} />
+        <meshStandardMaterial color={PALETTE.roof} />
+      </mesh>
+
+      {/* Small detail on chimney */}
+      <mesh position={[0.6, 3, 0]}>
+        <boxGeometry args={[0.4, 0.1, 0.4]} />
+        <meshStandardMaterial color={PALETTE.black} />
+      </mesh>
     </group>
   );
 };
+
