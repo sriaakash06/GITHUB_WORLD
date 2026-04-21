@@ -1,8 +1,8 @@
 import React, { useMemo, useRef, useEffect } from 'react';
 import { OrbitControls, ContactShadows, Float, SoftShadows } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
-import { Ground } from './Ground';
 import { Building } from './Building';
+import { StylizedHouse } from './StylizedHouse';
 import { Tree } from './Tree';
 import { PALETTE } from './Constants';
 import gsap from 'gsap';
@@ -11,7 +11,7 @@ const Cloud = ({ position, scale }) => (
   <Float speed={1.5} rotationIntensity={0.2} floatIntensity={0.5}>
     <mesh position={position} scale={scale}>
       <boxGeometry args={[4, 1.5, 2]} />
-      <meshStandardMaterial color={PALETTE.cloud} transparent opacity={0.8} />
+      <meshStandardMaterial color={PALETTE.cloud} transparent opacity={0.6} />
     </mesh>
   </Float>
 );
@@ -21,23 +21,23 @@ export const Experience = ({ repos, isCinematic, setHoveredRepo }) => {
   const { camera } = useThree();
 
   useEffect(() => {
-    camera.position.set(60, 60, 60);
+    camera.position.set(30, 30, 30);
     if (controlsRef.current) {
-        controlsRef.current.target.set(0, 0, 0);
+        controlsRef.current.target.set(0, 2, 0);
     }
 
     const resetCamera = () => {
       gsap.to(camera.position, {
-        x: 60,
-        y: 60,
-        z: 60,
+        x: 30,
+        y: 30,
+        z: 30,
         duration: 1.5,
         ease: "power3.out"
       });
       if (controlsRef.current) {
         gsap.to(controlsRef.current.target, {
           x: 0,
-          y: 0,
+          y: 2,
           z: 0,
           duration: 1.5
         });
@@ -49,68 +49,44 @@ export const Experience = ({ repos, isCinematic, setHoveredRepo }) => {
   }, [camera]);
 
   const buildingPlacements = useMemo(() => {
-    const spacing = 4;
-    const gridDim = 10;
     return repos.slice(0, 40).map((repo, i) => {
-      // Find a grid spot that isn't a road
-      // Road is at x%10 == 0 or z%10 == 0
-      // We'll place houses at offsets like x=5, z=5, etc.
-      const gridX = (i % 6) * 10 + 5 - 30;
-      const gridZ = Math.floor(i / 6) * 10 + 5 - 30;
+      const angle = (i / 40) * Math.PI * 2;
+      const radius = 25 + Math.random() * 10;
+      const gridX = Math.cos(angle) * radius;
+      const gridZ = Math.sin(angle) * radius;
       
       return {
         ...repo,
-        position: [gridX * spacing / 4, 0, gridZ * spacing / 4],
-        rotation: [0, Math.PI / i, 0]
+        position: [gridX, 0, gridZ],
+        rotation: [0, -angle, 0]
       };
     });
   }, [repos]);
-
-  const decorations = useMemo(() => {
-    const clouds = [];
-    const trees = [];
-    for (let i = 0; i < 15; i++) {
-        clouds.push({
-            position: [Math.random() * 80 - 40, 15 + Math.random() * 10, Math.random() * 80 - 40],
-            scale: 0.5 + Math.random() * 1.5
-        });
-    }
-    for (let i = 0; i < 30; i++) {
-        trees.push({
-            position: [Math.random() * 100 - 50, 0, Math.random() * 100 - 50],
-            scale: 0.5 + Math.random() * 1.5
-        });
-    }
-    return { clouds, trees };
-  }, []);
 
   return (
     <>
       <OrbitControls 
         ref={controlsRef}
         makeDefault 
-        maxPolarAngle={Math.PI / 2.5} 
-        minDistance={20} 
-        maxDistance={200} 
+        maxPolarAngle={Math.PI / 2.2} 
+        minDistance={5} 
+        maxDistance={100} 
       />
       
-      {/* Lighting */}
-      <SoftShadows size={25} samples={10} focus={0} />
-      <ambientLight intensity={1.2} />
+      {/* Soft, Stylized Lighting */}
+      <SoftShadows size={15} samples={10} focus={0} />
+      <ambientLight intensity={1.5} />
       <directionalLight
-        position={[50, 100, 50]}
-        intensity={1.5}
+        position={[10, 20, 10]}
+        intensity={1.2}
         castShadow
         shadow-mapSize={[2048, 2048]}
-        shadow-camera-left={-100}
-        shadow-camera-right={100}
-        shadow-camera-top={100}
-        shadow-camera-bottom={-100}
       />
       
       <group>
-        <Ground />
-        
+        {/* THE STYLIZED HOUSE DIORAMA */}
+        <StylizedHouse position={[0, 0, 0]} scale={1.2} />
+
         {buildingPlacements.map((repo, i) => (
           <Building 
             key={repo.name} 
@@ -122,24 +98,22 @@ export const Experience = ({ repos, isCinematic, setHoveredRepo }) => {
           />
         ))}
 
-        {decorations.trees.map((tree, i) => (
-          <Tree key={i} position={tree.position} scale={tree.scale} />
-        ))}
-
-        {decorations.clouds.map((cloud, i) => (
-          <Cloud key={i} {...cloud} />
+        {buildingPlacements.length > 0 && Array.from({length: 10}).map((_, i) => (
+             <Cloud key={i} position={[Math.random()*60-30, 15+Math.random()*5, Math.random()*60-30]} scale={0.5+Math.random()} />
         ))}
       </group>
 
       <ContactShadows 
          position={[0, -0.01, 0]} 
          opacity={0.4} 
-         scale={200} 
-         blur={1} 
-         far={20} 
-         resolution={512} 
+         scale={100} 
+         blur={2.5} 
+         far={10} 
+         resolution={1024} 
       />
     </>
   );
 };
+
+
 

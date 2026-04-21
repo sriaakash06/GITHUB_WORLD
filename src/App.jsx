@@ -58,7 +58,7 @@ function App() {
         gl={{ antialias: true }}
         id="world-canvas"
       >
-        <color attach="background" args={['#86c18a']} />
+        <color attach="background" args={['#a2e1f2']} />
         <Experience repos={repos} isCinematic={isCinematic} setHoveredRepo={setHoveredRepo} />
       </Canvas>
 

@@ -1,18 +1,19 @@
 export const PALETTE = {
-    grass: ['#86c18a', '#96d19a', '#a6e1aa'],
-    grassDark: '#5e9462',
-    stone: '#e5e5e5',
-    stoneDark: '#333333',
-    wood: '#795548',
-    building: '#ffffff',
-    trim: '#dcdcdc',
-    roof: '#ff5722',
-    window: '#e0f7fa',
-    door: '#5d4037',
-    road: '#37474f',
-    roadLine: '#ffffff',
+    grass: ['#d1ff82', '#b8e667', '#a2d14d'],
+    grassDark: '#8ab33d',
+    stone: '#ecf0f1',
+    stoneDark: '#bdc3c7',
+    wood: '#f39c12',
+    building: '#81ecec', // Light blue walls
+    trim: '#ffffff',
+    roof: '#ff7675', // Terracotta/pinkish roof
+    window: '#dfe6e9',
+    door: '#e67e22',
+    road: '#dfe6e9',
+    pink: '#fab1a0',
+    blossom: '#fd79a8',
     cloud: '#ffffff',
-    black: '#111111'
+    black: '#2d3436'
 };
 
 export const LANG_COLORS = {
