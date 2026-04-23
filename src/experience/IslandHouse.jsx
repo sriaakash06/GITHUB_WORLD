@@ -43,7 +43,10 @@ const Roof = ({ x, z, y, w, d, h, color }) => {
   );
 };
 
-export default function IslandHouse({ position = [0, 0, 0], scale = 1, rotation = [0, 0, 0] }) {
+export default function IslandHouse({ position = [0, 0, 0], scale = 1, rotation = [0, 0, 0], roofColor }) {
+  const lowerRoofColor = roofColor || "#d48040";
+  const upperRoofColor = roofColor || "#e08848";
+
   return (
     <group position={position} scale={scale} rotation={rotation}>
       {/* ISLAND LAYERS */}
@@ -92,10 +95,10 @@ export default function IslandHouse({ position = [0, 0, 0], scale = 1, rotation 
       <Box x={-0.85} z={1.18} y={2.31} w={1.7} d={0.07} h={0.18} color="#8a6030" />
 
       {/* LOWER ROOF (original x, z, y, w, d, h, color) */}
-      <Roof x={-1.3} z={-1.0} y={3.3} w={2.6} d={1.9} h={0.85} color="#d48040" />
+      <Roof x={-1.3} z={-1.0} y={3.3} w={2.6} d={1.9} h={0.85} color={lowerRoofColor} />
       
       {/* UPPER ROOF */}
-      <Roof x={-1.05} z={-0.8} y={3.33} w={2.0} d={1.7} h={0.82} color="#e08848" />
+      <Roof x={-1.05} z={-0.8} y={3.33} w={2.0} d={1.7} h={0.82} color={upperRoofColor} />
 
       {/* CHIMNEYS */}
       <Box x={-0.25} z={-0.5} y={4.0} w={0.22} d={0.22} h={0.55} color="#8a7060" />

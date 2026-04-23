@@ -8,14 +8,76 @@ import { Tree } from './Tree';
 import { PALETTE } from './Constants';
 import gsap from 'gsap';
 
-const Cloud = ({ position, scale }) => (
-  <Float speed={1.5} rotationIntensity={0.2} floatIntensity={0.5}>
-    <mesh position={position} scale={scale}>
-      <boxGeometry args={[4, 1.5, 2]} />
-      <meshStandardMaterial color={PALETTE.cloud} transparent opacity={0.6} />
+// Cute puffy cloud using overlapping spheres
+const Cloud = ({ position, scale }) => {
+  return (
+    <Float speed={1.5} rotationIntensity={0.2} floatIntensity={0.5}>
+      <group position={position} scale={scale}>
+        <mesh position={[0, 0, 0]}>
+          <sphereGeometry args={[1.2, 16, 16]} />
+          <meshStandardMaterial color={PALETTE.cloud} transparent opacity={0.8} flatShading />
+        </mesh>
+        <mesh position={[-1, -0.2, 0.2]}>
+          <sphereGeometry args={[0.9, 16, 16]} />
+          <meshStandardMaterial color={PALETTE.cloud} transparent opacity={0.8} flatShading />
+        </mesh>
+        <mesh position={[1, -0.2, -0.2]}>
+          <sphereGeometry args={[0.9, 16, 16]} />
+          <meshStandardMaterial color={PALETTE.cloud} transparent opacity={0.8} flatShading />
+        </mesh>
+        <mesh position={[0.5, 0.4, 0.5]}>
+          <sphereGeometry args={[0.8, 16, 16]} />
+          <meshStandardMaterial color={PALETTE.cloud} transparent opacity={0.8} flatShading />
+        </mesh>
+        <mesh position={[-0.5, 0.3, -0.5]}>
+          <sphereGeometry args={[0.8, 16, 16]} />
+          <meshStandardMaterial color={PALETTE.cloud} transparent opacity={0.8} flatShading />
+        </mesh>
+      </group>
+    </Float>
+  );
+};
+
+// Procedural Paths for the village
+const VillagePaths = ({ rings }) => {
+  const paths = [];
+  // Central plaza patch
+  paths.push(
+    <mesh key="plaza" rotation={[-Math.PI/2, 0, 0]} position={[0, 0.01, 0]} receiveShadow>
+      <circleGeometry args={[8, 32]} />
+      <meshStandardMaterial color="#c4a868" flatShading />
     </mesh>
-  </Float>
-);
+  );
+
+  for (let r = 1; r <= rings; r++) {
+    const radius = r * 14;
+    // Circular ring paths
+    paths.push(
+      <mesh key={`ring-${r}`} rotation={[-Math.PI/2, 0, 0]} position={[0, 0.01, 0]} receiveShadow>
+        <ringGeometry args={[radius - 1, radius + 1, 64]} />
+        <meshStandardMaterial color="#c4a868" flatShading />
+      </mesh>
+    );
+  }
+
+  // Cross paths
+  const crossWidth = 2;
+  const maxRadius = rings * 14;
+  paths.push(
+    <mesh key="cross-x" rotation={[-Math.PI/2, 0, 0]} position={[0, 0.011, 0]} receiveShadow>
+      <planeGeometry args={[maxRadius * 2, crossWidth]} />
+      <meshStandardMaterial color="#c4a868" flatShading />
+    </mesh>
+  );
+  paths.push(
+    <mesh key="cross-z" rotation={[-Math.PI/2, 0, Math.PI/2]} position={[0, 0.011, 0]} receiveShadow>
+      <planeGeometry args={[maxRadius * 2, crossWidth]} />
+      <meshStandardMaterial color="#c4a868" flatShading />
+    </mesh>
+  );
+
+  return <group>{paths}</group>;
+};
 
 export const Experience = ({ repos, isCinematic, setHoveredRepo }) => {
   const controlsRef = useRef();
@@ -54,7 +116,7 @@ export const Experience = ({ repos, isCinematic, setHoveredRepo }) => {
       // Village layout: Rings around Town Hall
       const ring = Math.floor(i / 10) + 1;
       const angle = (i % 10) / 10 * Math.PI * 2;
-      const radius = ring * 8 + 5;
+      const radius = ring * 14; // increased spacing so they fit beautifully
       
       const x = Math.cos(angle) * radius;
       const z = Math.sin(angle) * radius;
@@ -69,8 +131,9 @@ export const Experience = ({ repos, isCinematic, setHoveredRepo }) => {
 
   const villageAssets = useMemo(() => {
     const trees = [];
-    for (let i = 0; i < 30; i++) {
-        const radius = 40 + Math.random() * 20;
+    for (let i = 0; i < 40; i++) {
+        // Place trees outside the main rings or between houses
+        const radius = 25 + Math.random() * 35;
         const angle = Math.random() * Math.PI * 2;
         trees.push({
             position: [Math.cos(angle) * radius, 0, Math.sin(angle) * radius],
@@ -105,6 +168,9 @@ export const Experience = ({ repos, isCinematic, setHoveredRepo }) => {
             <planeGeometry args={[150, 150]} />
             <meshStandardMaterial color={PALETTE.grass[0]} />
         </mesh>
+
+        {/* VILLAGE PATHS */}
+        <VillagePaths rings={Math.ceil(repos.length / 10)} />
 
         {/* TOWN HALL */}
         <IslandHouse position={[0, -0.4, 0]} scale={2.5} />
