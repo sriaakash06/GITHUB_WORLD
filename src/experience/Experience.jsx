@@ -3,6 +3,7 @@ import { OrbitControls, ContactShadows, Float, SoftShadows } from '@react-three/
 import { useThree } from '@react-three/fiber';
 import { Building } from './Building';
 import { TownHall } from './TownHall';
+import IslandHouse from './IslandHouse';
 import { Tree } from './Tree';
 import { PALETTE } from './Constants';
 import gsap from 'gsap';
@@ -106,7 +107,7 @@ export const Experience = ({ repos, isCinematic, setHoveredRepo }) => {
         </mesh>
 
         {/* TOWN HALL */}
-        <TownHall position={[0, 0, 0]} scale={2} />
+        <IslandHouse position={[0, -0.4, 0]} scale={2.5} />
 
         {/* REPOSITORY HOUSES */}
         {buildingPlacements.map((repo, i) => (
