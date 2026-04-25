@@ -48,25 +48,25 @@ const HexTerrain = () => {
   return (
     <group>
       {/* Main hex grass layer */}
-      <mesh rotation={[-Math.PI / 2, 0, Math.PI / 6]} position={[0, -0.05, 0]} receiveShadow>
+      <mesh rotation={[0, Math.PI / 6, 0]} position={[0, -0.05, 0]} receiveShadow>
         <cylinderGeometry args={[62, 68, 0.6, 6]} />
         <meshStandardMaterial color={PALETTE.grass[0]} roughness={0.95} flatShading />
       </mesh>
 
       {/* Edge bevel layer */}
-      <mesh rotation={[-Math.PI / 2, 0, Math.PI / 6]} position={[0, -0.5, 0]} receiveShadow>
+      <mesh rotation={[0, Math.PI / 6, 0]} position={[0, -0.5, 0]} receiveShadow>
         <cylinderGeometry args={[68, 75, 0.7, 6]} />
         <meshStandardMaterial color={PALETTE.grassDark} roughness={0.95} flatShading />
       </mesh>
 
       {/* Bottom skirt */}
-      <mesh rotation={[-Math.PI / 2, 0, Math.PI / 6]} position={[0, -1.1, 0]} receiveShadow>
+      <mesh rotation={[0, Math.PI / 6, 0]} position={[0, -1.1, 0]} receiveShadow>
         <cylinderGeometry args={[74, 80, 0.8, 6]} />
         <meshStandardMaterial color={PALETTE.hexEdge} roughness={0.95} flatShading />
       </mesh>
 
       {/* Grass surface plane on top */}
-      <mesh rotation={[-Math.PI / 2, 0, Math.PI / 6]} position={[0, 0.25, 0]} receiveShadow>
+      <mesh rotation={[0, Math.PI / 6, 0]} position={[0, 0.25, 0]} receiveShadow>
         <cylinderGeometry args={[61, 62, 0.05, 6]} />
         <meshStandardMaterial color={PALETTE.grassLight} roughness={0.9} flatShading />
       </mesh>
@@ -110,14 +110,14 @@ const VillagePaths = ({ rings }) => {
         <meshStandardMaterial color={PALETTE.road} roughness={0.95} flatShading />
       </mesh>
       {/* Cross straight paths – Z axis */}
-      <mesh rotation={[-Math.PI / 2, Math.PI / 2, 0]} position={[0, 0.263, 0]} receiveShadow>
+      <mesh rotation={[-Math.PI / 2, 0, Math.PI / 2]} position={[0, 0.263, 0]} receiveShadow>
         <planeGeometry args={[ringCount * 14 * 2 + 4, 2.5]} />
         <meshStandardMaterial color={PALETTE.road} roughness={0.95} flatShading />
       </mesh>
 
       {/* Diagonal paths for charm */}
       {[Math.PI / 4, -Math.PI / 4].map((angle, i) => (
-        <mesh key={`diag-${i}`} rotation={[-Math.PI / 2, angle, 0]} position={[0, 0.262, 0]} receiveShadow>
+        <mesh key={`diag-${i}`} rotation={[-Math.PI / 2, 0, angle]} position={[0, 0.262, 0]} receiveShadow>
           <planeGeometry args={[ringCount * 14 * 2 + 4, 1.6]} />
           <meshStandardMaterial color={PALETTE.roadDark} roughness={0.95} flatShading transparent opacity={0.7} />
         </mesh>
