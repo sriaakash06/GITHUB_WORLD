@@ -1,213 +1,412 @@
 import React, { useMemo, useRef, useEffect } from 'react';
 import { OrbitControls, ContactShadows, Float, SoftShadows } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
-import { Building } from './Building';
-import { TownHall } from './TownHall';
-import IslandHouse from './IslandHouse';
-import { Tree } from './Tree';
-import { PALETTE } from './Constants';
+import * as THREE from 'three';
 import gsap from 'gsap';
 
-// Cute puffy cloud using overlapping spheres
-const Cloud = ({ position, scale }) => {
-  return (
-    <Float speed={1.5} rotationIntensity={0.2} floatIntensity={0.5}>
-      <group position={position} scale={scale}>
-        <mesh position={[0, 0, 0]}>
-          <sphereGeometry args={[1.2, 16, 16]} />
-          <meshStandardMaterial color={PALETTE.cloud} transparent opacity={0.8} flatShading />
-        </mesh>
-        <mesh position={[-1, -0.2, 0.2]}>
-          <sphereGeometry args={[0.9, 16, 16]} />
-          <meshStandardMaterial color={PALETTE.cloud} transparent opacity={0.8} flatShading />
-        </mesh>
-        <mesh position={[1, -0.2, -0.2]}>
-          <sphereGeometry args={[0.9, 16, 16]} />
-          <meshStandardMaterial color={PALETTE.cloud} transparent opacity={0.8} flatShading />
-        </mesh>
-        <mesh position={[0.5, 0.4, 0.5]}>
-          <sphereGeometry args={[0.8, 16, 16]} />
-          <meshStandardMaterial color={PALETTE.cloud} transparent opacity={0.8} flatShading />
-        </mesh>
-        <mesh position={[-0.5, 0.3, -0.5]}>
-          <sphereGeometry args={[0.8, 16, 16]} />
-          <meshStandardMaterial color={PALETTE.cloud} transparent opacity={0.8} flatShading />
-        </mesh>
-      </group>
-    </Float>
-  );
-};
+import { Building } from './Building';
+import { Tree } from './Tree';
+import GitVilleTownHall from './GitVilleTownHall';
+import { PALETTE, ROOF_COLORS } from './Constants';
 
-// Procedural Paths for the village
-const VillagePaths = ({ rings }) => {
-  const paths = [];
-  // Central plaza patch
-  paths.push(
-    <mesh key="plaza" rotation={[-Math.PI/2, 0, 0]} position={[0, 0.01, 0]} receiveShadow>
-      <circleGeometry args={[8, 32]} />
-      <meshStandardMaterial color="#c4a868" flatShading />
-    </mesh>
-  );
-
-  for (let r = 1; r <= rings; r++) {
-    const radius = r * 14;
-    // Circular ring paths
-    paths.push(
-      <mesh key={`ring-${r}`} rotation={[-Math.PI/2, 0, 0]} position={[0, 0.01, 0]} receiveShadow>
-        <ringGeometry args={[radius - 1, radius + 1, 64]} />
-        <meshStandardMaterial color="#c4a868" flatShading />
+// ─────────────────────────────────────────────
+// CLOUD  – puffy low-poly overlapping spheres
+// ─────────────────────────────────────────────
+const Cloud = ({ position, scale = 1 }) => (
+  <Float speed={1.2} rotationIntensity={0.1} floatIntensity={0.6}>
+    <group position={position} scale={scale}>
+      <mesh castShadow>
+        <sphereGeometry args={[1.3, 7, 7]} />
+        <meshStandardMaterial color="#ffffff" roughness={1} flatShading />
       </mesh>
-    );
-  }
+      <mesh position={[-1.1, -0.25, 0.1]} castShadow>
+        <sphereGeometry args={[0.95, 7, 7]} />
+        <meshStandardMaterial color="#f8f8f8" roughness={1} flatShading />
+      </mesh>
+      <mesh position={[1.1, -0.2, -0.15]} castShadow>
+        <sphereGeometry args={[0.95, 7, 7]} />
+        <meshStandardMaterial color="#f8f8f8" roughness={1} flatShading />
+      </mesh>
+      <mesh position={[0.45, 0.55, 0.4]} castShadow>
+        <sphereGeometry args={[0.78, 6, 6]} />
+        <meshStandardMaterial color="#ffffff" roughness={1} flatShading />
+      </mesh>
+      <mesh position={[-0.5, 0.45, -0.35]} castShadow>
+        <sphereGeometry args={[0.72, 6, 6]} />
+        <meshStandardMaterial color="#efefef" roughness={1} flatShading />
+      </mesh>
+    </group>
+  </Float>
+);
 
-  // Cross paths
-  const crossWidth = 2;
-  const maxRadius = rings * 14;
-  paths.push(
-    <mesh key="cross-x" rotation={[-Math.PI/2, 0, 0]} position={[0, 0.011, 0]} receiveShadow>
-      <planeGeometry args={[maxRadius * 2, crossWidth]} />
-      <meshStandardMaterial color="#c4a868" flatShading />
-    </mesh>
-  );
-  paths.push(
-    <mesh key="cross-z" rotation={[-Math.PI/2, 0, Math.PI/2]} position={[0, 0.011, 0]} receiveShadow>
-      <planeGeometry args={[maxRadius * 2, crossWidth]} />
-      <meshStandardMaterial color="#c4a868" flatShading />
-    </mesh>
-  );
+// ─────────────────────────────────────────────
+// HEXAGONAL TERRAIN
+// ─────────────────────────────────────────────
+const HexTerrain = () => {
+  // Large flat hexagon base (grass)
+  // Central slight mound is handled by TownHall platform
+  return (
+    <group>
+      {/* Main hex grass layer */}
+      <mesh rotation={[-Math.PI / 2, 0, Math.PI / 6]} position={[0, -0.05, 0]} receiveShadow>
+        <cylinderGeometry args={[62, 68, 0.6, 6]} />
+        <meshStandardMaterial color={PALETTE.grass[0]} roughness={0.95} flatShading />
+      </mesh>
 
-  return <group>{paths}</group>;
+      {/* Edge bevel layer */}
+      <mesh rotation={[-Math.PI / 2, 0, Math.PI / 6]} position={[0, -0.5, 0]} receiveShadow>
+        <cylinderGeometry args={[68, 75, 0.7, 6]} />
+        <meshStandardMaterial color={PALETTE.grassDark} roughness={0.95} flatShading />
+      </mesh>
+
+      {/* Bottom skirt */}
+      <mesh rotation={[-Math.PI / 2, 0, Math.PI / 6]} position={[0, -1.1, 0]} receiveShadow>
+        <cylinderGeometry args={[74, 80, 0.8, 6]} />
+        <meshStandardMaterial color={PALETTE.hexEdge} roughness={0.95} flatShading />
+      </mesh>
+
+      {/* Grass surface plane on top */}
+      <mesh rotation={[-Math.PI / 2, 0, Math.PI / 6]} position={[0, 0.25, 0]} receiveShadow>
+        <cylinderGeometry args={[61, 62, 0.05, 6]} />
+        <meshStandardMaterial color={PALETTE.grassLight} roughness={0.9} flatShading />
+      </mesh>
+    </group>
+  );
 };
 
+// ─────────────────────────────────────────────
+// VILLAGE PATHS  – circular rings + cross paths
+// ─────────────────────────────────────────────
+const VillagePaths = ({ rings }) => {
+  const ringCount = Math.max(rings, 2);
+
+  return (
+    <group>
+      {/* Central cobblestone plaza */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.26, 0]} receiveShadow>
+        <circleGeometry args={[8.5, 32]} />
+        <meshStandardMaterial color={PALETTE.road} roughness={0.95} flatShading />
+      </mesh>
+      {/* Plaza inner detail ring */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.261, 0]} receiveShadow>
+        <ringGeometry args={[5.5, 6, 32]} />
+        <meshStandardMaterial color={PALETTE.roadDark} roughness={0.95} flatShading />
+      </mesh>
+
+      {/* Circular ring roads */}
+      {Array.from({ length: ringCount }).map((_, r) => {
+        const radius = (r + 1) * 14;
+        return (
+          <mesh key={`ring-${r}`} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.262, 0]} receiveShadow>
+            <ringGeometry args={[radius - 1.2, radius + 1.2, 72]} />
+            <meshStandardMaterial color={PALETTE.road} roughness={0.95} flatShading />
+          </mesh>
+        );
+      })}
+
+      {/* Cross straight paths – X axis */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.263, 0]} receiveShadow>
+        <planeGeometry args={[ringCount * 14 * 2 + 4, 2.5]} />
+        <meshStandardMaterial color={PALETTE.road} roughness={0.95} flatShading />
+      </mesh>
+      {/* Cross straight paths – Z axis */}
+      <mesh rotation={[-Math.PI / 2, Math.PI / 2, 0]} position={[0, 0.263, 0]} receiveShadow>
+        <planeGeometry args={[ringCount * 14 * 2 + 4, 2.5]} />
+        <meshStandardMaterial color={PALETTE.road} roughness={0.95} flatShading />
+      </mesh>
+
+      {/* Diagonal paths for charm */}
+      {[Math.PI / 4, -Math.PI / 4].map((angle, i) => (
+        <mesh key={`diag-${i}`} rotation={[-Math.PI / 2, angle, 0]} position={[0, 0.262, 0]} receiveShadow>
+          <planeGeometry args={[ringCount * 14 * 2 + 4, 1.6]} />
+          <meshStandardMaterial color={PALETTE.roadDark} roughness={0.95} flatShading transparent opacity={0.7} />
+        </mesh>
+      ))}
+    </group>
+  );
+};
+
+// ─────────────────────────────────────────────
+// DECORATIVE WELL  (village charm)
+// ─────────────────────────────────────────────
+const Well = ({ position }) => (
+  <group position={position}>
+    <mesh castShadow receiveShadow>
+      <cylinderGeometry args={[0.5, 0.55, 0.7, 8]} />
+      <meshStandardMaterial color={PALETTE.stoneDark} roughness={0.9} flatShading />
+    </mesh>
+    <mesh position={[0, 0.45, 0]} castShadow>
+      <cylinderGeometry args={[0.52, 0.52, 0.1, 8]} />
+      <meshStandardMaterial color={PALETTE.stone} roughness={0.9} flatShading />
+    </mesh>
+    {/* Crossbeam */}
+    <mesh position={[0, 1.0, 0]} castShadow>
+      <boxGeometry args={[1.2, 0.12, 0.12]} />
+      <meshStandardMaterial color={PALETTE.wood} roughness={0.9} flatShading />
+    </mesh>
+    {/* Posts */}
+    {[[-0.5, 0, 0], [0.5, 0, 0]].map(([x, y, z], i) => (
+      <mesh key={i} position={[x, 0.6, z]} castShadow>
+        <boxGeometry args={[0.1, 1.2, 0.1]} />
+        <meshStandardMaterial color={PALETTE.wood} roughness={0.9} flatShading />
+      </mesh>
+    ))}
+    {/* Bucket */}
+    <mesh position={[0.1, 0.75, 0]} castShadow>
+      <cylinderGeometry args={[0.1, 0.12, 0.22, 6]} />
+      <meshStandardMaterial color="#8b4513" roughness={0.85} flatShading />
+    </mesh>
+  </group>
+);
+
+// ─────────────────────────────────────────────
+// LAMP POST
+// ─────────────────────────────────────────────
+const LampPost = ({ position }) => (
+  <group position={position}>
+    <mesh castShadow>
+      <cylinderGeometry args={[0.06, 0.08, 2.8, 6]} />
+      <meshStandardMaterial color="#4a4a5a" roughness={0.5} metalness={0.4} flatShading />
+    </mesh>
+    <mesh position={[0.35, 1.2, 0]} castShadow>
+      <boxGeometry args={[0.7, 0.06, 0.06]} />
+      <meshStandardMaterial color="#4a4a5a" roughness={0.5} metalness={0.4} flatShading />
+    </mesh>
+    <mesh position={[0.7, 1.15, 0]} castShadow>
+      <sphereGeometry args={[0.18, 7, 7]} />
+      <meshStandardMaterial color="#fff8d0" emissive="#ffe890" emissiveIntensity={0.6} flatShading />
+    </mesh>
+  </group>
+);
+
+// ─────────────────────────────────────────────
+// FENCE SEGMENT
+// ─────────────────────────────────────────────
+const FenceSegment = ({ position, rotation = [0, 0, 0] }) => (
+  <group position={position} rotation={rotation}>
+    {/* Rails */}
+    <mesh position={[0, 0.65, 0]} castShadow>
+      <boxGeometry args={[2.0, 0.08, 0.06]} />
+      <meshStandardMaterial color="#d4b896" roughness={0.9} flatShading />
+    </mesh>
+    <mesh position={[0, 0.4, 0]} castShadow>
+      <boxGeometry args={[2.0, 0.08, 0.06]} />
+      <meshStandardMaterial color="#d4b896" roughness={0.9} flatShading />
+    </mesh>
+    {/* Posts */}
+    {[-0.85, 0, 0.85].map((x, i) => (
+      <mesh key={i} position={[x, 0.4, 0]} castShadow>
+        <boxGeometry args={[0.08, 0.85, 0.08]} />
+        <meshStandardMaterial color="#c4a880" roughness={0.9} flatShading />
+      </mesh>
+    ))}
+  </group>
+);
+
+// ─────────────────────────────────────────────
+// MAIN EXPERIENCE
+// ─────────────────────────────────────────────
 export const Experience = ({ repos, isCinematic, setHoveredRepo }) => {
   const controlsRef = useRef();
   const { camera } = useThree();
 
   useEffect(() => {
-    camera.position.set(40, 40, 40);
+    camera.position.set(55, 55, 55);
     if (controlsRef.current) {
-        controlsRef.current.target.set(0, 0, 0);
+      controlsRef.current.target.set(0, 3, 0);
+      controlsRef.current.update();
     }
 
-    const resetCamera = () => {
-      gsap.to(camera.position, {
-        x: 40,
-        y: 40,
-        z: 40,
-        duration: 1.5,
-        ease: "power3.out"
-      });
+    const onReset = () => {
+      gsap.to(camera.position, { x: 55, y: 55, z: 55, duration: 1.5, ease: 'power3.out' });
       if (controlsRef.current) {
-        gsap.to(controlsRef.current.target, {
-          x: 0,
-          y: 0,
-          z: 0,
-          duration: 1.5
-        });
+        gsap.to(controlsRef.current.target, { x: 0, y: 3, z: 0, duration: 1.5 });
       }
     };
 
-    window.addEventListener('reset-camera', resetCamera);
-    return () => window.removeEventListener('reset-camera', resetCamera);
+    window.addEventListener('reset-camera', onReset);
+    return () => window.removeEventListener('reset-camera', onReset);
   }, [camera]);
 
+  // ── House placements in two concentric rings ──
   const buildingPlacements = useMemo(() => {
     return repos.slice(0, 50).map((repo, i) => {
-      // Village layout: Rings around Town Hall
-      const ring = Math.floor(i / 10) + 1;
-      const angle = (i % 10) / 10 * Math.PI * 2;
-      const radius = ring * 14; // increased spacing so they fit beautifully
-      
+      const ring   = Math.floor(i / 10) + 1;    // ring 1 or 2 (up to 5 rings)
+      const count  = Math.min(repos.length - (ring - 1) * 10, 10);
+      const angle  = (i % 10) / 10 * Math.PI * 2;
+      const radius = ring * 14;
       const x = Math.cos(angle) * radius;
       const z = Math.sin(angle) * radius;
-      
       return {
         ...repo,
-        position: [x, 0, z],
-        rotation: [0, -angle + Math.PI / 2, 0]
+        position:  [x, 0.28, z],
+        rotation:  [0, -angle + Math.PI / 2, 0],
+        index: i,
       };
     });
   }, [repos]);
 
-  const villageAssets = useMemo(() => {
+  // ── Static GitVille assets (trees, wells, lamps, fence) ──
+  const staticAssets = useMemo(() => {
+    const seed = (n) => Math.abs(Math.sin(n * 9301 + 49297) * 233280) % 1;
+
+    // Trees – scattered around outside rings and between houses
     const trees = [];
-    for (let i = 0; i < 40; i++) {
-        // Place trees outside the main rings or between houses
-        const radius = 25 + Math.random() * 35;
-        const angle = Math.random() * Math.PI * 2;
-        trees.push({
-            position: [Math.cos(angle) * radius, 0, Math.sin(angle) * radius],
-            scale: 0.5 + Math.random()
-        });
+    for (let i = 0; i < 55; i++) {
+      const angle  = seed(i) * Math.PI * 2;
+      const minR   = 28 + (i % 3) * 8;
+      const radius = minR + seed(i + 100) * 18;
+      trees.push({
+        position: [Math.cos(angle) * radius, 0.28, Math.sin(angle) * radius],
+        scale:    0.55 + seed(i + 200) * 0.7,
+      });
     }
-    return { trees };
+
+    // Also scatter some trees between ring 1 and ring 2
+    for (let i = 0; i < 14; i++) {
+      const angle  = (i / 14) * Math.PI * 2 + 0.3;
+      const radius = 9 + seed(i + 300) * 2.5;
+      trees.push({
+        position: [Math.cos(angle) * radius, 0.28, Math.sin(angle) * radius],
+        scale:    0.4 + seed(i + 400) * 0.35,
+      });
+    }
+
+    // Wells – a few scattered near paths
+    const wells = [
+      [7, 0.28, 0],
+      [-7, 0.28, 0],
+      [0, 0.28, 7],
+    ];
+
+    // Lamp posts – placed along the cross paths
+    const lamps = [];
+    for (let d = 10; d <= 30; d += 6) {
+      lamps.push([d, 0.3, 0], [-d, 0.3, 0], [0, 0.3, d], [0, 0.3, -d]);
+    }
+
+    // Fence ring around center platform
+    const fences = [];
+    for (let i = 0; i < 22; i++) {
+      const a = (i / 22) * Math.PI * 2;
+      const r = 13.2;
+      fences.push({
+        position: [Math.cos(a) * r, 0.28, Math.sin(a) * r],
+        rotation: [0, a + Math.PI / 2, 0],
+      });
+    }
+
+    // Clouds
+    const clouds = [];
+    const cloudSeeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    cloudSeeds.forEach((n) => {
+      const angle  = seed(n + 50) * Math.PI * 2;
+      const radius = 25 + seed(n + 60) * 45;
+      clouds.push({
+        position: [Math.cos(angle) * radius, 18 + seed(n + 70) * 8, Math.sin(angle) * radius],
+        scale:    0.9 + seed(n + 80) * 1.2,
+      });
+    });
+
+    return { trees, wells, lamps, fences, clouds };
   }, []);
+
+  const rings = Math.max(Math.ceil(repos.length / 10), 2);
 
   return (
     <>
-      <OrbitControls 
+      {/* ── CAMERA CONTROLS ── */}
+      <OrbitControls
         ref={controlsRef}
-        makeDefault 
-        maxPolarAngle={Math.PI / 2.2} 
-        minDistance={10} 
-        maxDistance={120} 
+        makeDefault
+        target={[0, 3, 0]}
+        maxPolarAngle={Math.PI / 2.1}
+        minDistance={12}
+        maxDistance={150}
+        enableDamping
+        dampingFactor={0.05}
       />
-      
-      <SoftShadows size={20} samples={10} focus={0} />
-      <ambientLight intensity={1} />
+
+      {/* ── LIGHTING ── */}
+      <SoftShadows size={22} samples={12} focus={0} />
+      <ambientLight intensity={1.1} color="#fffbe8" />
       <directionalLight
-        position={[20, 40, 20]}
-        intensity={1.5}
+        position={[30, 50, 25]}
+        intensity={1.8}
+        color="#fff5e0"
         castShadow
         shadow-mapSize={[2048, 2048]}
+        shadow-camera-near={0.5}
+        shadow-camera-far={200}
+        shadow-camera-left={-80}
+        shadow-camera-right={80}
+        shadow-camera-top={80}
+        shadow-camera-bottom={-80}
+        shadow-bias={-0.0005}
       />
-      
+      {/* Fill light from opposite side for soft shadows */}
+      <directionalLight position={[-20, 30, -20]} intensity={0.35} color="#c8e0ff" />
+      {/* Warm ground bounce */}
+      <hemisphereLight skyColor="#b0e0ff" groundColor="#88c870" intensity={0.5} />
+
       <group>
-        {/* GRASS PLANE */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]} receiveShadow>
-            <planeGeometry args={[150, 150]} />
-            <meshStandardMaterial color={PALETTE.grass[0]} />
-        </mesh>
+        {/* ── HEXAGONAL TERRAIN ── */}
+        <HexTerrain />
 
-        {/* VILLAGE PATHS */}
-        <VillagePaths rings={Math.ceil(repos.length / 10)} />
+        {/* ── VILLAGE PATHS ── */}
+        <VillagePaths rings={rings} />
 
-        {/* TOWN HALL */}
-        <IslandHouse position={[0, -0.4, 0]} scale={2.5} />
+        {/* ── TOWN HALL (center) ── */}
+        <GitVilleTownHall position={[0, 0, 0]} />
 
-        {/* REPOSITORY HOUSES */}
+        {/* ── FENCE RING around platform ── */}
+        {staticAssets.fences.map((f, i) => (
+          <FenceSegment key={`fence-${i}`} position={f.position} rotation={f.rotation} />
+        ))}
+
+        {/* ── REPOSITORY HOUSES ── */}
         {buildingPlacements.map((repo, i) => (
-          <Building 
-            key={repo.name} 
-            repo={repo} 
-            position={repo.position} 
+          <Building
+            key={repo.name}
+            repo={repo}
+            index={i}
+            position={repo.position}
             rotation={repo.rotation}
             onHover={() => setHoveredRepo(repo)}
             onUnhover={() => setHoveredRepo(null)}
           />
         ))}
 
-        {villageAssets.trees.map((tree, i) => (
-          <Tree key={i} position={tree.position} scale={tree.scale} />
+        {/* ── TREES ── */}
+        {staticAssets.trees.map((t, i) => (
+          <Tree key={`tree-${i}`} position={t.position} scale={t.scale} />
         ))}
-        
-        {Array.from({length: 8}).map((_, i) => (
-             <Cloud key={i} position={[Math.random()*100-50, 20+Math.random()*5, Math.random()*100-50]} scale={0.8+Math.random()} />
+
+        {/* ── WELLS ── */}
+        {staticAssets.wells.map((pos, i) => (
+          <Well key={`well-${i}`} position={pos} />
+        ))}
+
+        {/* ── LAMP POSTS ── */}
+        {staticAssets.lamps.map((pos, i) => (
+          <LampPost key={`lamp-${i}`} position={pos} />
+        ))}
+
+        {/* ── CLOUDS ── */}
+        {staticAssets.clouds.map((c, i) => (
+          <Cloud key={`cloud-${i}`} position={c.position} scale={c.scale} />
         ))}
       </group>
 
-      <ContactShadows 
-         position={[0, -0.01, 0]} 
-         opacity={0.3} 
-         scale={150} 
-         blur={2} 
-         far={15} 
-         resolution={1024} 
+      {/* ── CONTACT SHADOWS ── */}
+      <ContactShadows
+        position={[0, 0.25, 0]}
+        opacity={0.28}
+        scale={180}
+        blur={2.5}
+        far={20}
+        resolution={1024}
       />
     </>
   );
 };
-
-
-
-

@@ -1,32 +1,53 @@
-import React, { useMemo, useState } from 'react';
-import { GET_STYLIZED_COLOR_FOR_LANG } from './Constants';
-import IslandHouse from './IslandHouse';
+import React, { useMemo, useState, useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
+import { GET_STYLIZED_COLOR_FOR_LANG, ROOF_COLORS } from './Constants';
+import GitVilleHouse from './GitVilleHouse';
 
-export const Building = ({ repo, position, rotation, onHover, onUnhover }) => {
+export const Building = ({ repo, position, rotation, onHover, onUnhover, index = 0 }) => {
   const [hovered, setHovered] = useState(false);
-  
-  const roofColor = useMemo(() => GET_STYLIZED_COLOR_FOR_LANG(repo.language), [repo.language]);
-  // Use a smaller scale mapping since IslandHouse geometry bounding is larger than the previous Building
-  // Use a slightly larger scale as requested
-  const scale = useMemo(() => 0.7 + (Math.log10(repo.stargazers_count + 1) * 0.15), [repo.stargazers_count]);
+  const groupRef = useRef();
+
+  const roofColor = useMemo(
+    () => GET_STYLIZED_COLOR_FOR_LANG(repo.language) || ROOF_COLORS[index % ROOF_COLORS.length],
+    [repo.language, index]
+  );
+
+  const scale = useMemo(
+    () => 0.75 + Math.log10(repo.stargazers_count + 2) * 0.12,
+    [repo.stargazers_count]
+  );
+
+  // Smooth hover pop animation
+  useFrame((_, delta) => {
+    if (!groupRef.current) return;
+    const target = hovered ? scale * 1.18 : scale;
+    const cur = groupRef.current.scale.x;
+    const next = cur + (target - cur) * Math.min(delta * 10, 1);
+    groupRef.current.scale.set(next, next, next);
+  });
 
   return (
-    <group 
-      position={position} 
+    <group
+      ref={groupRef}
+      position={position}
       rotation={rotation}
-      // scale based on size + slight hover pop effect
-      scale={hovered ? scale * 1.15 : scale}
+      scale={scale}
       onPointerOver={(e) => {
         e.stopPropagation();
         setHovered(true);
-        onHover();
+        document.body.style.cursor = 'pointer';
+        onHover && onHover();
       }}
       onPointerOut={() => {
         setHovered(false);
-        onUnhover();
+        document.body.style.cursor = 'default';
+        onUnhover && onUnhover();
       }}
     >
-      <IslandHouse roofColor={roofColor} />
+      <GitVilleHouse
+        roofColor={roofColor}
+        style={index % 4}
+      />
     </group>
   );
 };
