@@ -1,10 +1,10 @@
 :root {
-    --bg-dark: #0a0a0f;
-    --card-bg: rgba(255, 255, 255, 0.05);
-    --glass-border: rgba(255, 255, 255, 0.1);
+    --bg-dark: #87ceeb; /* Sky blue background */
+    --card-bg: rgba(255, 255, 255, 0.2);
+    --glass-border: rgba(255, 255, 255, 0.3);
     --accent: #5e5ce6;
-    --text-primary: #ffffff;
-    --text-secondary: #a1a1aa;
+    --text-primary: #1f2937;
+    --text-secondary: #4b5563;
     --gold: #f59e0b;
     
     /* Language Colors */
@@ -62,7 +62,7 @@ canvas {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: radial-gradient(circle at center, #1a1a2e 0%, #0a0a0f 100%);
+    background: radial-gradient(circle at center, rgba(135, 206, 235, 0.8) 0%, rgba(135, 206, 235, 0.95) 100%);
     transition: opacity 0.8s ease, visibility 0.8s;
 }
 

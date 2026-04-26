@@ -1,66 +1,69 @@
 export const PALETTE = {
     // Terrain
-    grass:      ['#6dbf5e', '#5cb04e', '#74c864'],
-    grassLight: '#85d475',
-    grassDark:  '#4a9a3d',
-    hexBase:    '#4a9a3d',
-    hexEdge:    '#3a7a2e',
+    grass:      ['#8ade5d', '#7ad64d', '#9af26e'],
+    grassLight: '#a6f879',
+    grassDark:  '#65b83d',
+    hexBase:    '#7b5c42', // Dirt base for floating island
+    hexEdge:    '#5a3f29', // Dark dirt
 
-    // Roads / Paths
-    road:       '#c8aa7a',
-    roadDark:   '#b89660',
+    // Roads / Paths (Cobblestone)
+    road:       '#b2becd',
+    roadDark:   '#93a0af',
 
     // Building materials
-    wall:       '#f5e6d0',
-    wallAlt:    '#e8d5b5',
-    stone:      '#d4c5a8',
-    stoneDark:  '#b8a888',
-    wood:       '#d2691e',   // orange trunk
+    wall:       '#ffffff',
+    wallAlt:    '#f5f7fa',
+    stone:      '#cbd5e1',
+    stoneDark:  '#94a3b8',
+    wood:       '#f59e0b',   // vibrant orange trunk
     trim:       '#ffffff',
 
     // Roofs – varied for houses
-    roofOrange: '#e8832a',
-    roofBlue:   '#4a90d9',
-    roofRed:    '#d94a4a',
-    roofYellow: '#f0c030',
-    roofPink:   '#e87ca8',
-    roofGreen:  '#5aaa60',
-    roofPurple: '#9b59b6',
-    roofTeal:   '#16a085',
+    roofOrange: '#ff8822',
+    roofBlue:   '#44aaff',
+    roofRed:    '#ff4444',
+    roofYellow: '#ffcc00',
+    roofPink:   '#ff77bb',
+    roofGreen:  '#55cc66',
+    roofPurple: '#b866ff',
+    roofTeal:   '#22ccaa',
 
     // Town Hall
-    townHallWall:   '#f0e4cc',
-    townHallBase:   '#d4c09a',
-    townHallRoof:   '#e8832a',
-    townHallAccent: '#c0392b',
+    townHallWall:   '#ffffff',
+    townHallBase:   '#e2e8f0',
+    townHallRoof:   '#ff8822',
+    townHallAccent: '#ef4444',
 
     // Trees
-    foliage:    '#5fbe52',
-    foliageDark:'#4aa040',
-    trunk:      '#d2691e',
+    foliage:    '#70e040',
+    foliageDark:'#58b030',
+    trunk:      '#e68a00',
 
     // Clouds
     cloud:      '#ffffff',
 
     // Window / door
-    window:     '#7ec8e3',
-    door:       '#8b4513',
+    window:     '#88eeff',
+    door:       '#d97706',
+
+    // River
+    water:      '#33bbff',
 
     // Misc
-    chimney:    '#9e8e78',
-    black:      '#2d3436',
+    chimney:    '#9ca3af',
+    black:      '#1f2937',
 };
 
 // House roof color cycle for variety in rings
 export const ROOF_COLORS = [
-    '#e8832a', // orange
-    '#4a90d9', // blue
-    '#d94a4a', // red
-    '#f0c030', // yellow
-    '#e87ca8', // pink
-    '#5aaa60', // green
-    '#9b59b6', // purple
-    '#16a085', // teal
+    '#ff8822', // orange
+    '#44aaff', // blue
+    '#ff4444', // red
+    '#ffcc00', // yellow
+    '#ff77bb', // pink
+    '#55cc66', // green
+    '#b866ff', // purple
+    '#22ccaa', // teal
 ];
 
 export const LANG_COLORS = {

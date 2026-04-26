@@ -40,28 +40,50 @@ const Cloud = ({ position, scale = 1 }) => (
 );
 
 // ─────────────────────────────────────────────
+// HOT AIR BALLOON
+// ─────────────────────────────────────────────
+const HotAirBalloon = ({ position, color, scale = 1 }) => (
+  <Float speed={1.5} rotationIntensity={0.2} floatIntensity={1.5}>
+    <group position={position} scale={scale}>
+      <mesh castShadow>
+        <sphereGeometry args={[2, 16, 16]} />
+        <meshStandardMaterial color={color} roughness={0.6} flatShading />
+      </mesh>
+      <mesh position={[0, -2.5, 0]} castShadow>
+        <boxGeometry args={[0.8, 0.6, 0.8]} />
+        <meshStandardMaterial color="#8b4513" roughness={0.9} flatShading />
+      </mesh>
+      {[[-0.35, -0.35], [0.35, -0.35], [-0.35, 0.35], [0.35, 0.35]].map(([x, z], i) => (
+        <mesh key={i} position={[x, -1.5, z]} castShadow>
+          <cylinderGeometry args={[0.02, 0.02, 1.6]} />
+          <meshStandardMaterial color="#2d3436" flatShading />
+        </mesh>
+      ))}
+    </group>
+  </Float>
+);
+
+// ─────────────────────────────────────────────
 // HEXAGONAL TERRAIN
 // ─────────────────────────────────────────────
 const HexTerrain = () => {
-  // Large flat hexagon base (grass)
-  // Central slight mound is handled by TownHall platform
   return (
     <group>
       {/* Main hex grass layer */}
       <mesh rotation={[0, Math.PI / 6, 0]} position={[0, -0.05, 0]} receiveShadow>
-        <cylinderGeometry args={[62, 68, 0.6, 6]} />
+        <cylinderGeometry args={[62, 62, 0.6, 6]} />
         <meshStandardMaterial color={PALETTE.grass[0]} roughness={0.95} flatShading />
       </mesh>
 
       {/* Edge bevel layer */}
       <mesh rotation={[0, Math.PI / 6, 0]} position={[0, -0.5, 0]} receiveShadow>
-        <cylinderGeometry args={[68, 75, 0.7, 6]} />
-        <meshStandardMaterial color={PALETTE.grassDark} roughness={0.95} flatShading />
+        <cylinderGeometry args={[62, 58, 0.7, 6]} />
+        <meshStandardMaterial color={PALETTE.hexBase} roughness={0.95} flatShading />
       </mesh>
 
-      {/* Bottom skirt */}
-      <mesh rotation={[0, Math.PI / 6, 0]} position={[0, -1.1, 0]} receiveShadow>
-        <cylinderGeometry args={[74, 80, 0.8, 6]} />
+      {/* Floating Island Base (Inverted Cone) */}
+      <mesh rotation={[0, Math.PI / 6, 0]} position={[0, -10.85, 0]} receiveShadow>
+        <cylinderGeometry args={[58, 5, 20, 6]} />
         <meshStandardMaterial color={PALETTE.hexEdge} roughness={0.95} flatShading />
       </mesh>
 
@@ -69,6 +91,12 @@ const HexTerrain = () => {
       <mesh rotation={[0, Math.PI / 6, 0]} position={[0, 0.25, 0]} receiveShadow>
         <cylinderGeometry args={[61, 62, 0.05, 6]} />
         <meshStandardMaterial color={PALETTE.grassLight} roughness={0.9} flatShading />
+      </mesh>
+
+      {/* Sparkling River */}
+      <mesh rotation={[-Math.PI / 2, 0, Math.PI / 8]} position={[0, 0.28, 0]} receiveShadow>
+        <planeGeometry args={[140, 8]} />
+        <meshStandardMaterial color={PALETTE.water} roughness={0.1} metalness={0.4} flatShading transparent opacity={0.85} />
       </mesh>
     </group>
   );
@@ -308,7 +336,20 @@ export const Experience = ({ repos, isCinematic, setHoveredRepo }) => {
       });
     });
 
-    return { trees, wells, lamps, fences, clouds };
+    // Balloons
+    const balloons = [];
+    const balloonColors = ['#ff4444', '#ffcc00', '#44aaff', '#ff77bb'];
+    for (let i = 0; i < 7; i++) {
+      const angle = seed(i + 900) * Math.PI * 2;
+      const radius = 15 + seed(i + 1000) * 45;
+      balloons.push({
+        position: [Math.cos(angle) * radius, 12 + seed(i + 1100) * 12, Math.sin(angle) * radius],
+        scale: 0.7 + seed(i + 1200) * 0.6,
+        color: balloonColors[i % balloonColors.length],
+      });
+    }
+
+    return { trees, wells, lamps, fences, clouds, balloons };
   }, []);
 
   const rings = Math.max(Math.ceil(repos.length / 10), 2);
@@ -329,11 +370,11 @@ export const Experience = ({ repos, isCinematic, setHoveredRepo }) => {
 
       {/* ── LIGHTING ── */}
       <SoftShadows size={22} samples={12} focus={0} />
-      <ambientLight intensity={1.1} color="#fffbe8" />
+      <ambientLight intensity={1.4} color="#ffd4a3" />
       <directionalLight
-        position={[30, 50, 25]}
-        intensity={1.8}
-        color="#fff5e0"
+        position={[40, 60, 30]}
+        intensity={2.2}
+        color="#ffedcc"
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-camera-near={0.5}
@@ -345,9 +386,9 @@ export const Experience = ({ repos, isCinematic, setHoveredRepo }) => {
         shadow-bias={-0.0005}
       />
       {/* Fill light from opposite side for soft shadows */}
-      <directionalLight position={[-20, 30, -20]} intensity={0.35} color="#c8e0ff" />
+      <directionalLight position={[-20, 30, -20]} intensity={0.4} color="#87CEEB" />
       {/* Warm ground bounce */}
-      <hemisphereLight skyColor="#b0e0ff" groundColor="#88c870" intensity={0.5} />
+      <hemisphereLight skyColor="#87CEEB" groundColor="#74cf4a" intensity={0.6} />
 
       <group>
         {/* ── HEXAGONAL TERRAIN ── */}
@@ -395,6 +436,11 @@ export const Experience = ({ repos, isCinematic, setHoveredRepo }) => {
         {/* ── CLOUDS ── */}
         {staticAssets.clouds.map((c, i) => (
           <Cloud key={`cloud-${i}`} position={c.position} scale={c.scale} />
+        ))}
+
+        {/* ── BALLOONS ── */}
+        {staticAssets.balloons.map((b, i) => (
+          <HotAirBalloon key={`balloon-${i}`} position={b.position} color={b.color} scale={b.scale} />
         ))}
       </group>
 
