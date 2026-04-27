@@ -174,6 +174,65 @@ canvas {
 }
 .reset-btn:active { transform: scale(0.97); }
 
+/* Street-view toggle button */
+.view-toggle-btn {
+  background: linear-gradient(135deg, #e8832a, #d96c18);
+  backdrop-filter: blur(var(--panel-blur));
+  -webkit-backdrop-filter: blur(var(--panel-blur));
+  border: 2px solid rgba(255,255,255,0.55);
+  border-radius: 999px;
+  padding: 8px 20px;
+  font-family: var(--font);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(232,131,42,0.4), var(--shadow);
+  transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+  letter-spacing: 0.05em;
+}
+.view-toggle-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(232,131,42,0.55);
+}
+.view-toggle-btn:active { transform: scale(0.97); }
+.view-toggle-btn.active {
+  background: linear-gradient(135deg, #1e88e5, #1565c0);
+  box-shadow: 0 4px 16px rgba(30,136,229,0.5), var(--shadow);
+}
+
+/* Street mode label (bottom-left) */
+.street-label {
+  position: absolute;
+  bottom: 40px;
+  left: 52px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--panel-bg);
+  backdrop-filter: blur(var(--panel-blur));
+  -webkit-backdrop-filter: blur(var(--panel-blur));
+  border: 2px solid rgba(255,255,255,0.75);
+  border-radius: var(--radius);
+  padding: 12px 22px;
+  box-shadow: var(--shadow);
+  animation: fadeUp 0.4s cubic-bezier(0.22,1,0.36,1) both;
+}
+.street-label-icon { font-size: 2rem; }
+.street-label-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--dark);
+}
+.street-label-sub {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--orange);
+  margin-top: 2px;
+}
+
 /* Hovered repo tooltip */
 .repo-tooltip {
   position: absolute;

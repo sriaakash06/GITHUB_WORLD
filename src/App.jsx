@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Experience } from './experience/Experience';
+import { StreetScene } from './experience/StreetScene';
 import { LoginScreen } from './components/LoginScreen';
 import { HUD } from './components/HUD';
 import { LoadingScreen } from './components/LoadingScreen';
@@ -11,6 +12,7 @@ function App() {
   const [loading, setLoading]         = useState(false);
   const [isCinematic, setIsCinematic] = useState(true);
   const [hoveredRepo, setHoveredRepo] = useState(null);
+  const [viewMode, setViewMode]       = useState('village'); // 'village' | 'street'
 
   const fetchUserData = async (username) => {
     setLoading(true);
@@ -21,7 +23,7 @@ function App() {
       if (!response.ok) throw new Error('User not found');
       const data = await response.json();
 
-      const totalStars    = data.reduce((acc, r) => acc + r.stargazers_count, 0);
+      const totalStars     = data.reduce((acc, r) => acc + r.stargazers_count, 0);
       const processedRepos = data.map((r) => ({
         name:             r.name,
         language:         r.language,
@@ -48,27 +50,50 @@ function App() {
 
   const resetCamera = () => window.dispatchEvent(new CustomEvent('reset-camera'));
 
+  const toggleView = () => {
+    setViewMode(v => v === 'village' ? 'street' : 'village');
+  };
+
+  // Sky colour changes by mode
+  const skyColor = viewMode === 'street' ? '#6ec6f5' : '#93d8f5';
+
   return (
     <div className="app-container">
       {!user && <LoginScreen onLogin={fetchUserData} />}
 
       <Canvas
+        key={viewMode}              /* remount scene on mode switch so camera resets cleanly */
         shadows
-        camera={{ position: [55, 55, 55], fov: 38 }}
-        gl={{ antialias: true, toneMapping: 4 /* ACESFilmicToneMapping */ }}
+        camera={
+          viewMode === 'street'
+            ? { position: [0, 1.65, 14], fov: 65 }
+            : { position: [55, 55, 55], fov: 38 }
+        }
+        gl={{ antialias: true, toneMapping: 4 }}
         id="world-canvas"
       >
-        {/* Sky gradient colour */}
-        <color attach="background" args={['#93d8f5']} />
+        <color attach="background" args={[skyColor]} />
 
-        <Experience
-          repos={repos}
-          isCinematic={isCinematic}
-          setHoveredRepo={setHoveredRepo}
-        />
+        {viewMode === 'village' ? (
+          <Experience
+            repos={repos}
+            isCinematic={isCinematic}
+            setHoveredRepo={setHoveredRepo}
+          />
+        ) : (
+          <StreetScene />
+        )}
       </Canvas>
 
-      {user && <HUD user={user} hoveredRepo={hoveredRepo} onResetCamera={resetCamera} />}
+      {user && (
+        <HUD
+          user={user}
+          hoveredRepo={hoveredRepo}
+          onResetCamera={resetCamera}
+          viewMode={viewMode}
+          onToggleView={toggleView}
+        />
+      )}
       {loading && <LoadingScreen />}
     </div>
   );

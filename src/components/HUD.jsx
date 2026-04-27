@@ -1,11 +1,24 @@
 import React from 'react';
 
-export const HUD = ({ user, hoveredRepo, onResetCamera }) => {
+export const HUD = ({ user, hoveredRepo, onResetCamera, viewMode, onToggleView }) => {
+  const isStreet = viewMode === 'street';
+
   return (
     <div id="hud">
       {/* Top-right controls */}
       <div className="hud-top">
-        <button className="reset-btn" onClick={onResetCamera}>⌖ Reset View</button>
+        {!isStreet && (
+          <button className="reset-btn" onClick={onResetCamera}>⌖ Reset View</button>
+        )}
+
+        <button
+          className={`view-toggle-btn ${isStreet ? 'active' : ''}`}
+          onClick={onToggleView}
+          title={isStreet ? 'Back to Village' : 'Street View'}
+        >
+          {isStreet ? '🌍 Village' : '🏘️ Street View'}
+        </button>
+
         {user.avatar && (
           <img
             src={user.avatar}
@@ -20,8 +33,8 @@ export const HUD = ({ user, hoveredRepo, onResetCamera }) => {
         )}
       </div>
 
-      {/* Hovered repo tooltip */}
-      {hoveredRepo && (
+      {/* Hovered repo tooltip (village only) */}
+      {!isStreet && hoveredRepo && (
         <div className="repo-tooltip">
           <div className="repo-name">{hoveredRepo.name}</div>
           {hoveredRepo.language && (
@@ -34,27 +47,37 @@ export const HUD = ({ user, hoveredRepo, onResetCamera }) => {
         </div>
       )}
 
-      {/* Bottom row */}
-      <div className="hud-bottom">
-        {/* Village name */}
-        <div className="hud-title-block">
-          <div className="hud-eyebrow">GitVille</div>
-          <h1 className="hud-village-name">{user.username}'s World</h1>
-          <div className="hud-subtitle">Your GitHub universe in 3D</div>
+      {/* Street mode label */}
+      {isStreet && (
+        <div className="street-label">
+          <span className="street-label-icon">🏘️</span>
+          <div>
+            <div className="street-label-title">{user.username}'s Street</div>
+            <div className="street-label-sub">First-person · GitVille</div>
+          </div>
         </div>
+      )}
 
-        {/* Stats */}
-        <div className="hud-stats">
-          <div className="stat-pill">
-            <span className="stat-value">{user.repoCount}</span>
-            <span className="stat-label">Repos</span>
+      {/* Bottom row */}
+      {!isStreet && (
+        <div className="hud-bottom">
+          <div className="hud-title-block">
+            <div className="hud-eyebrow">GitVille</div>
+            <h1 className="hud-village-name">{user.username}'s World</h1>
+            <div className="hud-subtitle">Your GitHub universe in 3D</div>
           </div>
-          <div className="stat-pill">
-            <span className="stat-value">{user.starCount}</span>
-            <span className="stat-label">Stars</span>
+          <div className="hud-stats">
+            <div className="stat-pill">
+              <span className="stat-value">{user.repoCount}</span>
+              <span className="stat-label">Repos</span>
+            </div>
+            <div className="stat-pill">
+              <span className="stat-value">{user.starCount}</span>
+              <span className="stat-label">Stars</span>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
