@@ -66,7 +66,7 @@ function App() {
         shadows
         camera={
           viewMode === 'street'
-            ? { position: [0, 1.65, 14], fov: 65 }
+            ? { position: [55, 55, 55], fov: 38 }
             : { position: [55, 55, 55], fov: 38 }
         }
         gl={{ antialias: true, toneMapping: 4 }}
@@ -81,7 +81,7 @@ function App() {
             setHoveredRepo={setHoveredRepo}
           />
         ) : (
-          <StreetScene />
+          <StreetScene repos={repos} setHoveredRepo={setHoveredRepo} />
         )}
       </Canvas>
 

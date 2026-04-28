@@ -4,7 +4,7 @@ import { OrbitControls, Float, SoftShadows, ContactShadows } from '@react-three/
 import * as THREE from 'three';
 import gsap from 'gsap';
 import { Tree } from './Tree';
-import { PALETTE } from './Constants';
+import { PALETTE, GET_STYLIZED_COLOR_FOR_LANG } from './Constants';
 
 // ── Reusable prism roof ──────────────────────────────────────────
 const PrismRoof = ({ width, depth, height, color, position }) => {
@@ -29,10 +29,37 @@ const PrismRoof = ({ width, depth, height, color, position }) => {
 const WALL_COLORS = ['#fffbf0', '#fff5d6', '#f0fff4', '#fff0f5', '#f5f0ff', '#f0f8ff'];
 const ROOF_COLS   = ['#ff8822','#44aaff','#ff4444','#ffcc00','#ff77bb','#55cc66','#b866ff','#22ccaa'];
 
-const StreetHouse = ({ position, rotation, roofColor, wallColor }) => {
+const StreetHouse = ({ position, rotation, roofColor, wallColor, scale = 1, onHover, onUnhover }) => {
   const W = 4.5, H = 2.8, D = 3.8;
+  const groupRef = useRef();
+
+  useFrame((_, delta) => {
+    if (!groupRef.current) return;
+    const target = (groupRef.current.userData.hovered) ? scale * 1.15 : scale;
+    const cur = groupRef.current.scale.x;
+    const next = cur + (target - cur) * Math.min(delta * 10, 1);
+    groupRef.current.scale.set(next, next, next);
+  });
+
   return (
-    <group position={position} rotation={rotation}>
+    <group
+      ref={groupRef}
+      position={position}
+      rotation={rotation}
+      scale={scale}
+      userData={{ hovered: false }}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        groupRef.current.userData.hovered = true;
+        document.body.style.cursor = 'pointer';
+        onHover && onHover();
+      }}
+      onPointerOut={() => {
+        groupRef.current.userData.hovered = false;
+        document.body.style.cursor = 'default';
+        onUnhover && onUnhover();
+      }}
+    >
       {/* Foundation */}
       <mesh position={[0, 0.12, 0]} castShadow receiveShadow>
         <boxGeometry args={[W + 0.4, 0.24, D + 0.4]} />
@@ -161,12 +188,12 @@ const Person = ({ position, shirtColor = '#e63946', pantsColor = '#457b9d', scal
 );
 
 // ── Animated Car ─────────────────────────────────────────────────
-const AnimatedCar = ({ color = '#e63946' }) => {
+const AnimatedCar = ({ color = '#e63946', length = 130 }) => {
   const ref = useRef();
   useFrame((state) => {
     if (!ref.current) return;
-    const t = (state.clock.elapsedTime * 5.5) % 130;
-    ref.current.position.z = -115 + t;
+    const t = (state.clock.elapsedTime * 8.5) % (length + 30);
+    ref.current.position.z = -length + 15 + t;
   });
   return (
     <group ref={ref} position={[1.6, 0, -115]}>
@@ -222,41 +249,40 @@ const AnimatedCar = ({ color = '#e63946' }) => {
 };
 
 // ── Road + Sidewalks ─────────────────────────────────────────────
-const Road = () => {
-  const LENGTH = 130;
-  const CZ = -50;
+const Road = ({ length = 130 }) => {
+  const CZ = -length / 2 + 15;
   return (
     <group>
       {/* Grass ground */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, CZ]} receiveShadow>
-        <planeGeometry args={[60, LENGTH]} />
+        <planeGeometry args={[60, length + 40]} />
         <meshStandardMaterial color={PALETTE.grass[0]} roughness={0.95} flatShading />
       </mesh>
       {/* Asphalt road */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, CZ]} receiveShadow>
-        <planeGeometry args={[8.5, LENGTH]} />
+        <planeGeometry args={[8.5, length + 40]} />
         <meshStandardMaterial color="#7a8898" roughness={0.95} flatShading />
       </mesh>
       {/* Left sidewalk */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-6.2, 0.04, CZ]} receiveShadow>
-        <planeGeometry args={[3.4, LENGTH]} />
+        <planeGeometry args={[3.4, length + 40]} />
         <meshStandardMaterial color="#b2becd" roughness={0.92} flatShading />
       </mesh>
       {/* Right sidewalk */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[6.2, 0.04, CZ]} receiveShadow>
-        <planeGeometry args={[3.4, LENGTH]} />
+        <planeGeometry args={[3.4, length + 40]} />
         <meshStandardMaterial color="#b2becd" roughness={0.92} flatShading />
       </mesh>
       {/* Curbs */}
       {[-4.25, 4.25].map((x, i) => (
         <mesh key={i} position={[x, 0.06, CZ]} receiveShadow>
-          <boxGeometry args={[0.18, 0.1, LENGTH]} />
+          <boxGeometry args={[0.18, 0.1, length + 40]} />
           <meshStandardMaterial color="#94a3b8" flatShading roughness={0.9} />
         </mesh>
       ))}
       {/* Center dashes */}
-      {Array.from({ length: 22 }).map((_, i) => (
-        <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 15 - i * 6]} receiveShadow>
+      {Array.from({ length: Math.floor((length + 40) / 6) }).map((_, i) => (
+        <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 25 - i * 6]} receiveShadow>
           <planeGeometry args={[0.18, 3]} />
           <meshStandardMaterial color="#f0e04a" roughness={0.9} flatShading />
         </mesh>
@@ -264,7 +290,7 @@ const Road = () => {
       {/* Road edge lines */}
       {[-3.8, 3.8].map((x, i) => (
         <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[x, 0.03, CZ]} receiveShadow>
-          <planeGeometry args={[0.12, LENGTH]} />
+          <planeGeometry args={[0.12, length + 40]} />
           <meshStandardMaterial color="#e0e0e0" roughness={0.9} flatShading />
         </mesh>
       ))}
@@ -285,31 +311,6 @@ const StreetCloud = ({ position, scale = 1 }) => (
   </Float>
 );
 
-// ── House data ───────────────────────────────────────────────────
-const houseZPositions = [2, -12, -26, -40, -54, -68, -82];
-
-const leftHouses = houseZPositions.map((z, i) => ({
-  position: [-11, 0, z],
-  rotation: [0, -Math.PI / 2, 0],
-  wallColor: WALL_COLORS[i % WALL_COLORS.length],
-  roofColor: ROOF_COLS[i % ROOF_COLS.length],
-}));
-
-const rightHouses = houseZPositions.map((z, i) => ({
-  position: [11, 0, z],
-  rotation: [0, Math.PI / 2, 0],
-  wallColor: WALL_COLORS[(i + 3) % WALL_COLORS.length],
-  roofColor: ROOF_COLS[(i + 4) % ROOF_COLS.length],
-}));
-
-const treeZPositions = [-5, -19, -33, -47, -61, -75];
-const leftTrees  = treeZPositions.map(z => ({ position: [-7.5, 0, z], scale: 0.9 }));
-const rightTrees = treeZPositions.map(z => ({ position: [ 7.5, 0, z], scale: 0.9 }));
-
-const lampZPositions = [-3, -17, -31, -45, -59, -73];
-const leftLamps  = lampZPositions.map(z => ({ position: [-5, 0, z] }));
-const rightLamps = lampZPositions.map(z => ({ position: [ 5, 0, z] }));
-
 const people = [
   { position: [-5.5, 0, -8],  shirtColor: '#e63946', pantsColor: '#457b9d', scale: 0.95 },
   { position: [ 5.8, 0, -18], shirtColor: '#2a9d8f', pantsColor: '#264653', scale: 1.0  },
@@ -327,36 +328,73 @@ const clouds = [
 ];
 
 // ── Main StreetScene export ──────────────────────────────────────
-export const StreetScene = () => {
+export const StreetScene = ({ repos = [], setHoveredRepo }) => {
   const { camera } = useThree();
   const controlsRef = useRef();
 
+  // Generate street elements based on repos
+  const { streetLength, streetHouses, streetTrees, streetLamps } = useMemo(() => {
+    // If no repos, fallback to dummy data logic (e.g. 10 houses)
+    const renderRepos = repos.length > 0 ? repos : Array.from({ length: 14 }).map((_, i) => ({
+      name: `Dummy Repo ${i}`, language: 'JavaScript', stargazers_count: 50
+    }));
+
+    const houses = [];
+    const trees = [];
+    const lamps = [];
+    
+    // Each pair of houses takes 14 units of depth
+    const pairs = Math.ceil(renderRepos.length / 2);
+    const length = pairs * 14;
+
+    renderRepos.forEach((repo, i) => {
+      const isLeft = i % 2 === 0;
+      const pairIdx = Math.floor(i / 2);
+      const zPos = 2 - pairIdx * 14;
+
+      houses.push({
+        repo,
+        position: [isLeft ? -11 : 11, 0, zPos],
+        rotation: [0, isLeft ? -Math.PI / 2 : Math.PI / 2, 0],
+        wallColor: WALL_COLORS[(i + (isLeft ? 0 : 3)) % WALL_COLORS.length],
+        roofColor: GET_STYLIZED_COLOR_FOR_LANG(repo.language) || ROOF_COLS[(i + (isLeft ? 0 : 4)) % ROOF_COLS.length],
+        scale: 0.8 + Math.log10((repo.stargazers_count || 0) + 2) * 0.1
+      });
+
+      if (isLeft) {
+        trees.push({ position: [-7.5, 0, zPos - 7], scale: 0.9 });
+        trees.push({ position: [ 7.5, 0, zPos - 7], scale: 0.9 });
+        lamps.push({ position: [-5, 0, zPos - 5] });
+        lamps.push({ position: [ 5, 0, zPos - 5] });
+      }
+    });
+
+    return { streetLength: length, streetHouses: houses, streetTrees: trees, streetLamps: lamps };
+  }, [repos]);
+
   useEffect(() => {
-    camera.fov = 65;
+    camera.fov = 38;
     camera.updateProjectionMatrix();
-    gsap.to(camera.position, { x: 0, y: 1.65, z: 14, duration: 1.8, ease: 'power3.out' });
+    // Start isometric
+    const centerZ = -streetLength / 4; // Look slightly down the street
+    gsap.to(camera.position, { x: 45, y: 45, z: centerZ + 45, duration: 1.8, ease: 'power3.out' });
     setTimeout(() => {
       if (controlsRef.current) {
-        controlsRef.current.target.set(0, 1.5, -25);
+        controlsRef.current.target.set(0, 0, centerZ);
         controlsRef.current.update();
       }
     }, 100);
-    return () => {
-      camera.fov = 38;
-      camera.updateProjectionMatrix();
-    };
-  }, [camera]);
+  }, [camera, streetLength]);
 
   return (
     <>
       <OrbitControls
         ref={controlsRef}
         makeDefault
-        target={[0, 1.5, -25]}
-        maxPolarAngle={Math.PI / 1.85}
-        minPolarAngle={Math.PI / 8}
-        minDistance={2}
-        maxDistance={40}
+        target={[0, 0, -25]}
+        maxPolarAngle={Math.PI / 2.1}
+        minDistance={12}
+        maxDistance={150}
         enableDamping
         dampingFactor={0.05}
       />
@@ -384,25 +422,29 @@ export const StreetScene = () => {
       <pointLight position={[-30, 35, 10]} color="#ff9933" intensity={0.8} distance={120} decay={1.5} />
 
       {/* Road */}
-      <Road />
+      <Road length={streetLength} />
 
       {/* Houses */}
-      {leftHouses.map((h, i) => <StreetHouse key={`lh-${i}`} {...h} />)}
-      {rightHouses.map((h, i) => <StreetHouse key={`rh-${i}`} {...h} />)}
+      {streetHouses.map((h, i) => (
+        <StreetHouse 
+          key={`sh-${i}`} 
+          {...h} 
+          onHover={() => setHoveredRepo && setHoveredRepo(h.repo)} 
+          onUnhover={() => setHoveredRepo && setHoveredRepo(null)} 
+        />
+      ))}
 
       {/* Trees */}
-      {leftTrees.map((t, i)  => <Tree key={`lt-${i}`} position={t.position} scale={t.scale} />)}
-      {rightTrees.map((t, i) => <Tree key={`rt-${i}`} position={t.position} scale={t.scale} />)}
+      {streetTrees.map((t, i)  => <Tree key={`t-${i}`} position={t.position} scale={t.scale} />)}
 
       {/* Streetlamps */}
-      {leftLamps.map((l, i)  => <VintageStreetLamp key={`ll-${i}`} position={l.position} />)}
-      {rightLamps.map((l, i) => <VintageStreetLamp key={`rl-${i}`} position={l.position} />)}
+      {streetLamps.map((l, i)  => <VintageStreetLamp key={`l-${i}`} position={l.position} />)}
 
       {/* People */}
       {people.map((p, i) => <Person key={`p-${i}`} {...p} />)}
 
       {/* Animated Car */}
-      <AnimatedCar color="#e63946" />
+      <AnimatedCar color="#e63946" length={streetLength} />
 
       {/* Clouds */}
       {clouds.map((c, i) => <StreetCloud key={`sc-${i}`} position={c.position} scale={c.scale} />)}
