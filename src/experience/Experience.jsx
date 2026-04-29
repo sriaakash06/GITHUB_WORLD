@@ -8,6 +8,7 @@ import { Building } from './Building';
 import { Tree } from './Tree';
 import GitVilleTownHall from './GitVilleTownHall';
 import { PALETTE, ROOF_COLORS } from './Constants';
+import { Vehicle } from './Vehicle';
 
 // ─────────────────────────────────────────────
 // CLOUD  – puffy low-poly overlapping spheres
@@ -64,128 +65,94 @@ const HotAirBalloon = ({ position, color, scale = 1 }) => (
 );
 
 // ─────────────────────────────────────────────
-// HEXAGONAL TERRAIN
+// CITY TERRAIN
 // ─────────────────────────────────────────────
-const HexTerrain = () => {
-  return (
-    <group>
-      {/* Main hex grass layer */}
-      <mesh rotation={[0, Math.PI / 6, 0]} position={[0, -0.05, 0]} receiveShadow>
-        <cylinderGeometry args={[62, 62, 0.6, 6]} />
-        <meshStandardMaterial color={PALETTE.grass[0]} roughness={0.95} flatShading />
-      </mesh>
-
-      {/* Edge bevel layer */}
-      <mesh rotation={[0, Math.PI / 6, 0]} position={[0, -0.5, 0]} receiveShadow>
-        <cylinderGeometry args={[62, 58, 0.7, 6]} />
-        <meshStandardMaterial color={PALETTE.hexBase} roughness={0.95} flatShading />
-      </mesh>
-
-      {/* Floating Island Base (Inverted Cone) */}
-      <mesh rotation={[0, Math.PI / 6, 0]} position={[0, -10.85, 0]} receiveShadow>
-        <cylinderGeometry args={[58, 5, 20, 6]} />
-        <meshStandardMaterial color={PALETTE.hexEdge} roughness={0.95} flatShading />
-      </mesh>
-
-      {/* Grass surface plane on top */}
-      <mesh rotation={[0, Math.PI / 6, 0]} position={[0, 0.25, 0]} receiveShadow>
-        <cylinderGeometry args={[61, 62, 0.05, 6]} />
-        <meshStandardMaterial color={PALETTE.grassLight} roughness={0.9} flatShading />
-      </mesh>
-
-      {/* Sparkling River */}
-      <mesh rotation={[-Math.PI / 2, 0, Math.PI / 8]} position={[0, 0.28, 0]} receiveShadow>
-        <planeGeometry args={[140, 8]} />
-        <meshStandardMaterial color={PALETTE.water} roughness={0.1} metalness={0.4} flatShading transparent opacity={0.85} />
-      </mesh>
-    </group>
-  );
-};
-
-// ─────────────────────────────────────────────
-// VILLAGE PATHS  – circular rings + cross paths
-// ─────────────────────────────────────────────
-const VillagePaths = ({ rings }) => {
-  const ringCount = Math.max(rings, 2);
-
-  return (
-    <group>
-      {/* Central cobblestone plaza */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.26, 0]} receiveShadow>
-        <circleGeometry args={[8.5, 32]} />
-        <meshStandardMaterial color={PALETTE.road} roughness={0.95} flatShading />
-      </mesh>
-      {/* Plaza inner detail ring */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.261, 0]} receiveShadow>
-        <ringGeometry args={[5.5, 6, 32]} />
-        <meshStandardMaterial color={PALETTE.roadDark} roughness={0.95} flatShading />
-      </mesh>
-
-      {/* Circular ring roads */}
-      {Array.from({ length: ringCount }).map((_, r) => {
-        const radius = (r + 1) * 14;
-        return (
-          <mesh key={`ring-${r}`} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.262, 0]} receiveShadow>
-            <ringGeometry args={[radius - 1.2, radius + 1.2, 72]} />
-            <meshStandardMaterial color={PALETTE.road} roughness={0.95} flatShading />
-          </mesh>
-        );
-      })}
-
-      {/* Cross straight paths – X axis */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.263, 0]} receiveShadow>
-        <planeGeometry args={[ringCount * 14 * 2 + 4, 2.5]} />
-        <meshStandardMaterial color={PALETTE.road} roughness={0.95} flatShading />
-      </mesh>
-      {/* Cross straight paths – Z axis */}
-      <mesh rotation={[-Math.PI / 2, 0, Math.PI / 2]} position={[0, 0.263, 0]} receiveShadow>
-        <planeGeometry args={[ringCount * 14 * 2 + 4, 2.5]} />
-        <meshStandardMaterial color={PALETTE.road} roughness={0.95} flatShading />
-      </mesh>
-
-      {/* Diagonal paths for charm */}
-      {[Math.PI / 4, -Math.PI / 4].map((angle, i) => (
-        <mesh key={`diag-${i}`} rotation={[-Math.PI / 2, 0, angle]} position={[0, 0.262, 0]} receiveShadow>
-          <planeGeometry args={[ringCount * 14 * 2 + 4, 1.6]} />
-          <meshStandardMaterial color={PALETTE.roadDark} roughness={0.95} flatShading transparent opacity={0.7} />
-        </mesh>
-      ))}
-    </group>
-  );
-};
-
-// ─────────────────────────────────────────────
-// DECORATIVE WELL  (village charm)
-// ─────────────────────────────────────────────
-const Well = ({ position }) => (
-  <group position={position}>
-    <mesh castShadow receiveShadow>
-      <cylinderGeometry args={[0.5, 0.55, 0.7, 8]} />
-      <meshStandardMaterial color={PALETTE.stoneDark} roughness={0.9} flatShading />
+const CityTerrain = () => (
+  <group>
+    {/* Base concrete/grass */}
+    <mesh position={[0, -0.5, 0]} receiveShadow>
+      <boxGeometry args={[120, 1, 120]} />
+      <meshStandardMaterial color={PALETTE.grassLight} roughness={0.9} flatShading />
     </mesh>
-    <mesh position={[0, 0.45, 0]} castShadow>
-      <cylinderGeometry args={[0.52, 0.52, 0.1, 8]} />
-      <meshStandardMaterial color={PALETTE.stone} roughness={0.9} flatShading />
+    {/* Foundation edge */}
+    <mesh position={[0, -1.5, 0]} receiveShadow>
+      <boxGeometry args={[122, 1, 122]} />
+      <meshStandardMaterial color={PALETTE.hexBase} roughness={0.9} flatShading />
     </mesh>
-    {/* Crossbeam */}
-    <mesh position={[0, 1.0, 0]} castShadow>
-      <boxGeometry args={[1.2, 0.12, 0.12]} />
-      <meshStandardMaterial color={PALETTE.wood} roughness={0.9} flatShading />
-    </mesh>
-    {/* Posts */}
-    {[[-0.5, 0, 0], [0.5, 0, 0]].map(([x, y, z], i) => (
-      <mesh key={i} position={[x, 0.6, z]} castShadow>
-        <boxGeometry args={[0.1, 1.2, 0.1]} />
-        <meshStandardMaterial color={PALETTE.wood} roughness={0.9} flatShading />
-      </mesh>
-    ))}
-    {/* Bucket */}
-    <mesh position={[0.1, 0.75, 0]} castShadow>
-      <cylinderGeometry args={[0.1, 0.12, 0.22, 6]} />
-      <meshStandardMaterial color="#8b4513" roughness={0.85} flatShading />
+    {/* Floating base */}
+    <mesh position={[0, -6.5, 0]} receiveShadow>
+      <cylinderGeometry args={[86, 15, 10, 4]} />
+      <meshStandardMaterial color={PALETTE.hexEdge} roughness={0.9} flatShading />
     </mesh>
   </group>
 );
+
+// ─────────────────────────────────────────────
+// CITY ROADS & SIDEWALKS
+// ─────────────────────────────────────────────
+const CityRoads = () => {
+  const roadCoords = [-40, -24, -8, 8, 24, 40];
+  const length = 120;
+  return (
+    <group position={[0, 0.01, 0]}>
+      {/* City Center Plaza */}
+      <mesh position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[16, 16]} />
+        <meshStandardMaterial color={PALETTE.stone} roughness={0.9} />
+      </mesh>
+
+      {roadCoords.map((coord, i) => (
+        <group key={`h-${i}`}>
+          {/* Sidewalk */}
+          <mesh position={[0, 0, coord]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+            <planeGeometry args={[length, 5.6]} />
+            <meshStandardMaterial color={PALETTE.stone} roughness={0.9} />
+          </mesh>
+          {/* Horizontal road */}
+          <mesh position={[0, 0.01, coord]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+            <planeGeometry args={[length, 4]} />
+            <meshStandardMaterial color={PALETTE.roadDark} roughness={0.9} />
+          </mesh>
+          {/* Dashed line */}
+          <mesh position={[0, 0.02, coord]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[length, 0.15]} />
+            <meshStandardMaterial color="#ffffff" transparent opacity={0.6} />
+          </mesh>
+        </group>
+      ))}
+      
+      {roadCoords.map((coord, i) => (
+        <group key={`v-${i}`}>
+          {/* Sidewalk */}
+          <mesh position={[coord, 0, 0]} rotation={[-Math.PI / 2, 0, Math.PI / 2]} receiveShadow>
+            <planeGeometry args={[length, 5.6]} />
+            <meshStandardMaterial color={PALETTE.stone} roughness={0.9} />
+          </mesh>
+          {/* Vertical road */}
+          <mesh position={[coord, 0.01, 0]} rotation={[-Math.PI / 2, 0, Math.PI / 2]} receiveShadow>
+            <planeGeometry args={[length, 4]} />
+            <meshStandardMaterial color={PALETTE.roadDark} roughness={0.9} />
+          </mesh>
+          {/* Dashed line */}
+          <mesh position={[coord, 0.02, 0]} rotation={[-Math.PI / 2, 0, Math.PI / 2]}>
+            <planeGeometry args={[length, 0.15]} />
+            <meshStandardMaterial color="#ffffff" transparent opacity={0.6} />
+          </mesh>
+        </group>
+      ))}
+
+      {/* Intersection fixes (slightly raised flat gray planes to cover overlapping dashed lines) */}
+      {roadCoords.map(x => 
+        roadCoords.map(z => (
+          <mesh key={`int-${x}-${z}`} position={[x, 0.025, z]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+            <planeGeometry args={[4.2, 4.2]} />
+            <meshStandardMaterial color={PALETTE.roadDark} roughness={0.9} />
+          </mesh>
+        ))
+      )}
+    </group>
+  );
+};
 
 // ─────────────────────────────────────────────
 // LAMP POST
@@ -204,30 +171,6 @@ const LampPost = ({ position }) => (
       <sphereGeometry args={[0.18, 7, 7]} />
       <meshStandardMaterial color="#fff8d0" emissive="#ffe890" emissiveIntensity={0.6} flatShading />
     </mesh>
-  </group>
-);
-
-// ─────────────────────────────────────────────
-// FENCE SEGMENT
-// ─────────────────────────────────────────────
-const FenceSegment = ({ position, rotation = [0, 0, 0] }) => (
-  <group position={position} rotation={rotation}>
-    {/* Rails */}
-    <mesh position={[0, 0.65, 0]} castShadow>
-      <boxGeometry args={[2.0, 0.08, 0.06]} />
-      <meshStandardMaterial color="#d4b896" roughness={0.9} flatShading />
-    </mesh>
-    <mesh position={[0, 0.4, 0]} castShadow>
-      <boxGeometry args={[2.0, 0.08, 0.06]} />
-      <meshStandardMaterial color="#d4b896" roughness={0.9} flatShading />
-    </mesh>
-    {/* Posts */}
-    {[-0.85, 0, 0.85].map((x, i) => (
-      <mesh key={i} position={[x, 0.4, 0]} castShadow>
-        <boxGeometry args={[0.08, 0.85, 0.08]} />
-        <meshStandardMaterial color="#c4a880" roughness={0.9} flatShading />
-      </mesh>
-    ))}
   </group>
 );
 
@@ -256,92 +199,96 @@ export const Experience = ({ repos, isCinematic, setHoveredRepo }) => {
     return () => window.removeEventListener('reset-camera', onReset);
   }, [camera]);
 
-  // ── House placements in two concentric rings ──
+  // ── House placements in a grid format ──
   const buildingPlacements = useMemo(() => {
-    return repos.slice(0, 50).map((repo, i) => {
-      const ring   = Math.floor(i / 10) + 1;    // ring 1 or 2 (up to 5 rings)
-      const count  = Math.min(repos.length - (ring - 1) * 10, 10);
-      const angle  = (i % 10) / 10 * Math.PI * 2;
-      const radius = ring * 14;
-      const x = Math.cos(angle) * radius;
-      const z = Math.sin(angle) * radius;
-      return {
-        ...repo,
-        position:  [x, 0.28, z],
-        rotation:  [0, -angle + Math.PI / 2, 0],
-        index: i,
-      };
-    });
+    const placements = [];
+    let repoIndex = 0;
+    
+    // 7x7 grid logic
+    for (let x = -3; x <= 3; x++) {
+      for (let z = -3; z <= 3; z++) {
+        // Skip center where Town Hall is
+        if (x === 0 && z === 0) continue; 
+        
+        if (repoIndex < repos.length && repoIndex < 48) {
+          const repo = repos[repoIndex];
+          const px = x * 16;
+          const pz = z * 16;
+          
+          // Face the closest road
+          const rotY = Math.abs(x) > Math.abs(z) ? Math.PI / 2 : 0;
+          
+          placements.push({
+            ...repo,
+            position: [px, 0.1, pz],
+            rotation: [0, rotY, 0],
+            index: repoIndex,
+          });
+          repoIndex++;
+        }
+      }
+    }
+    return placements;
   }, [repos]);
 
-  // ── Static GitVille assets (trees, wells, lamps, fence) ──
+  // ── Static assets (trees, lamps, vehicles, clouds) ──
   const staticAssets = useMemo(() => {
     const seed = (n) => Math.abs(Math.sin(n * 9301 + 49297) * 233280) % 1;
 
-    // Trees – scattered around outside rings and between houses
     const trees = [];
-    for (let i = 0; i < 55; i++) {
-      const angle  = seed(i) * Math.PI * 2;
-      const minR   = 28 + (i % 3) * 8;
-      const radius = minR + seed(i + 100) * 18;
-      trees.push({
-        position: [Math.cos(angle) * radius, 0.28, Math.sin(angle) * radius],
-        scale:    0.55 + seed(i + 200) * 0.7,
-      });
-    }
-
-    // Also scatter some trees between ring 1 and ring 2
-    for (let i = 0; i < 14; i++) {
-      const angle  = (i / 14) * Math.PI * 2 + 0.3;
-      const radius = 9 + seed(i + 300) * 2.5;
-      trees.push({
-        position: [Math.cos(angle) * radius, 0.28, Math.sin(angle) * radius],
-        scale:    0.4 + seed(i + 400) * 0.35,
-      });
-    }
-
-    // Wells – a few scattered near paths
-    const wells = [
-      [7, 0.28, 0],
-      [-7, 0.28, 0],
-      [0, 0.28, 7],
-    ];
-
-    // Lamp posts – placed along the cross paths
     const lamps = [];
-    for (let d = 10; d <= 30; d += 6) {
-      lamps.push([d, 0.3, 0], [-d, 0.3, 0], [0, 0.3, d], [0, 0.3, -d]);
-    }
+    const roadCoords = [-40, -24, -8, 8, 24, 40];
+    
+    // Plant trees neatly along the sidewalks
+    roadCoords.forEach((coord) => {
+      for (let i = -50; i <= 50; i += 8) {
+        // Only plant if not directly at an intersection
+        if (!roadCoords.includes(i)) {
+          trees.push({ position: [i, 0.1, coord + 3.2], scale: 0.35 + seed(i + coord) * 0.25 });
+          trees.push({ position: [i, 0.1, coord - 3.2], scale: 0.35 + seed(i - coord) * 0.25 });
+          
+          trees.push({ position: [coord + 3.2, 0.1, i], scale: 0.35 + seed(i * coord) * 0.25 });
+          trees.push({ position: [coord - 3.2, 0.1, i], scale: 0.35 + seed(i + coord + 10) * 0.25 });
+        }
+      }
+    });
 
-    // Fence ring around center platform
-    const fences = [];
-    for (let i = 0; i < 22; i++) {
-      const a = (i / 22) * Math.PI * 2;
-      const r = 13.2;
-      fences.push({
-        position: [Math.cos(a) * r, 0.28, Math.sin(a) * r],
-        rotation: [0, a + Math.PI / 2, 0],
-      });
-    }
+    // Place Lamp Posts along roads
+    roadCoords.forEach((coord) => {
+      for (let i = -40; i <= 40; i += 16) {
+        if (!roadCoords.includes(i)) {
+          lamps.push([i, 0.1, coord + 2.5]);
+          lamps.push([coord + 2.5, 0.1, i]);
+        }
+      }
+    });
 
-    // Clouds
+    const vehicles = [];
+    roadCoords.forEach((coord, index) => {
+      // Horizontal
+      vehicles.push({ isVertical: false, offset: coord + 1, dir: index % 2 === 0 ? 1 : -1 });
+      vehicles.push({ isVertical: false, offset: coord - 1, dir: index % 2 === 0 ? -1 : 1 });
+      // Vertical
+      vehicles.push({ isVertical: true, offset: coord + 1, dir: index % 2 === 0 ? 1 : -1 });
+      vehicles.push({ isVertical: true, offset: coord - 1, dir: index % 2 === 0 ? -1 : 1 });
+    });
+
     const clouds = [];
-    const cloudSeeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    const cloudSeeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
     cloudSeeds.forEach((n) => {
-      const angle  = seed(n + 50) * Math.PI * 2;
+      const angle = seed(n + 50) * Math.PI * 2;
       const radius = 25 + seed(n + 60) * 45;
       clouds.push({
         position: [Math.cos(angle) * radius, 18 + seed(n + 70) * 8, Math.sin(angle) * radius],
-        scale:    0.9 + seed(n + 80) * 1.2,
+        scale: 0.9 + seed(n + 80) * 1.2,
       });
     });
 
-    // Balloons
     const balloons = [];
     const balloonColors = ['#ff4444', '#ffcc00', '#44aaff', '#ff77bb'];
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 4; i++) {
       const angle = seed(i + 900) * Math.PI * 2;
-      const radius = 15 + seed(i + 1000) * 45;
+      const radius = 15 + seed(i + 1000) * 35;
       balloons.push({
         position: [Math.cos(angle) * radius, 12 + seed(i + 1100) * 12, Math.sin(angle) * radius],
         scale: 0.7 + seed(i + 1200) * 0.6,
@@ -349,10 +296,8 @@ export const Experience = ({ repos, isCinematic, setHoveredRepo }) => {
       });
     }
 
-    return { trees, wells, lamps, fences, clouds, balloons };
+    return { trees, lamps, vehicles, clouds, balloons };
   }, []);
-
-  const rings = Math.max(Math.ceil(repos.length / 10), 2);
 
   return (
     <>
@@ -391,19 +336,14 @@ export const Experience = ({ repos, isCinematic, setHoveredRepo }) => {
       <hemisphereLight skyColor="#87CEEB" groundColor="#74cf4a" intensity={0.6} />
 
       <group>
-        {/* ── HEXAGONAL TERRAIN ── */}
-        <HexTerrain />
+        {/* ── CITY TERRAIN ── */}
+        <CityTerrain />
 
-        {/* ── VILLAGE PATHS ── */}
-        <VillagePaths rings={rings} />
+        {/* ── CITY ROADS ── */}
+        <CityRoads />
 
         {/* ── TOWN HALL (center) ── */}
         <GitVilleTownHall position={[0, 0, 0]} />
-
-        {/* ── FENCE RING around platform ── */}
-        {staticAssets.fences.map((f, i) => (
-          <FenceSegment key={`fence-${i}`} position={f.position} rotation={f.rotation} />
-        ))}
 
         {/* ── REPOSITORY HOUSES ── */}
         {buildingPlacements.map((repo, i) => (
@@ -423,14 +363,14 @@ export const Experience = ({ repos, isCinematic, setHoveredRepo }) => {
           <Tree key={`tree-${i}`} position={t.position} scale={t.scale} />
         ))}
 
-        {/* ── WELLS ── */}
-        {staticAssets.wells.map((pos, i) => (
-          <Well key={`well-${i}`} position={pos} />
-        ))}
-
         {/* ── LAMP POSTS ── */}
         {staticAssets.lamps.map((pos, i) => (
           <LampPost key={`lamp-${i}`} position={pos} />
+        ))}
+
+        {/* ── VEHICLES ── */}
+        {staticAssets.vehicles.map((v, i) => (
+          <Vehicle key={`veh-${i}`} isVertical={v.isVertical} offset={v.offset} dir={v.dir} />
         ))}
 
         {/* ── CLOUDS ── */}
