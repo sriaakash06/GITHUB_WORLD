@@ -94,11 +94,12 @@ export default function GitVilleTownHall({ position = [0, 0, 0], username }) {
         setHovered(false);
         document.body.style.cursor = 'default';
       }}
-      onClick={(e) => {
+      onPointerUp={(e) => {
         e.stopPropagation();
         const url = username 
           ? `https://github.com/${username}` 
           : `https://github.com/sriaakash06`; // Fallback
+        console.log('Clicked on Town Hall, opening:', url);
         window.open(url, '_blank', 'noopener,noreferrer');
       }}
     >

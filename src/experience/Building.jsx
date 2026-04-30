@@ -43,8 +43,9 @@ export const Building = ({ repo, position, rotation, onHover, onUnhover, index =
         document.body.style.cursor = 'default';
         onUnhover && onUnhover();
       }}
-      onClick={(e) => {
+      onPointerUp={(e) => {
         e.stopPropagation();
+        console.log('Clicked on repo:', repo.name, repo.html_url);
         if (repo.html_url) {
           window.open(repo.html_url, '_blank', 'noopener,noreferrer');
         }
