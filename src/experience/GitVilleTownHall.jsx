@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import * as THREE from 'three';
+import { useFrame } from '@react-three/fiber';
 import { PALETTE } from './Constants';
 
 // Triangular prism roof
@@ -68,9 +69,39 @@ const Window = ({ position, rotation = [0, 0, 0] }) => (
   </mesh>
 );
 
-export default function GitVilleTownHall({ position = [0, 0, 0] }) {
+export default function GitVilleTownHall({ position = [0, 0, 0], username }) {
+  const [hovered, setHovered] = useState(false);
+  const groupRef = useRef();
+
+  useFrame((_, delta) => {
+    if (!groupRef.current) return;
+    const target = hovered ? 1.05 : 1; // Slight scale up on hover
+    const cur = groupRef.current.scale.x;
+    const next = cur + (target - cur) * Math.min(delta * 10, 1);
+    groupRef.current.scale.set(next, next, next);
+  });
+
   return (
-    <group position={position}>
+    <group 
+      ref={groupRef}
+      position={position}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        setHovered(true);
+        document.body.style.cursor = 'pointer';
+      }}
+      onPointerOut={() => {
+        setHovered(false);
+        document.body.style.cursor = 'default';
+      }}
+      onClick={(e) => {
+        e.stopPropagation();
+        const url = username 
+          ? `https://github.com/${username}` 
+          : `https://github.com/sriaakash06`; // Fallback
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }}
+    >
       {/* RAISED PLATFORM */}
       <CenterPlatform />
 

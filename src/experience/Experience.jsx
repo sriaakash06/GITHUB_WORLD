@@ -177,7 +177,7 @@ const LampPost = ({ position }) => (
 // ─────────────────────────────────────────────
 // MAIN EXPERIENCE
 // ─────────────────────────────────────────────
-export const Experience = ({ repos, isCinematic, setHoveredRepo }) => {
+export const Experience = ({ repos, user, isCinematic, setHoveredRepo }) => {
   const controlsRef = useRef();
   const { camera } = useThree();
 
@@ -343,7 +343,7 @@ export const Experience = ({ repos, isCinematic, setHoveredRepo }) => {
         <CityRoads />
 
         {/* ── TOWN HALL (center) ── */}
-        <GitVilleTownHall position={[0, 0, 0]} />
+        <GitVilleTownHall position={[0, 0, 0]} username={user?.username} />
 
         {/* ── REPOSITORY HOUSES ── */}
         {buildingPlacements.map((repo, i) => (

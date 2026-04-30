@@ -43,6 +43,12 @@ export const Building = ({ repo, position, rotation, onHover, onUnhover, index =
         document.body.style.cursor = 'default';
         onUnhover && onUnhover();
       }}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (repo.html_url) {
+          window.open(repo.html_url, '_blank', 'noopener,noreferrer');
+        }
+      }}
     >
       <GitVilleHouse
         roofColor={roofColor}

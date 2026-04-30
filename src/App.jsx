@@ -64,6 +64,7 @@ function App() {
 
         <Experience
           repos={repos}
+          user={user}
           isCinematic={isCinematic}
           setHoveredRepo={setHoveredRepo}
         />
