@@ -7,19 +7,19 @@ export const TownHall = ({ position = [0, 0, 0], scale = 1 }) => {
       {/* FOUNDATION */}
       <mesh position={[0, 0.25, 0]} castShadow receiveShadow>
         <boxGeometry args={[6, 0.5, 6]} />
-        <meshStandardMaterial color="#7f8c8d" />
+        <meshStandardMaterial color="#b1a7a7ff" />
       </mesh>
 
       {/* LOWER WALLS (Stone/Wood) */}
       <mesh position={[0, 1.5, 0]} castShadow receiveShadow>
         <boxGeometry args={[5.5, 2, 5.5]} />
-        <meshStandardMaterial color="#95a5a6" />
+        <meshStandardMaterial color="#b9d2e2ff" />
       </mesh>
 
       {/* UPPER WALLS/TRIM */}
       <mesh position={[0, 3, 0]} castShadow receiveShadow>
         <boxGeometry args={[5.8, 1, 5.8]} />
-        <meshStandardMaterial color="#7f8c8d" />
+        <meshStandardMaterial color="#b1a7a7ff" />
       </mesh>
 
       {/* ROOF (The Iconic Red CoC Roof) */}
