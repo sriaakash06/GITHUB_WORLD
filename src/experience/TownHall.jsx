@@ -13,7 +13,7 @@ export const TownHall = ({ position = [0, 0, 0], scale = 1 }) => {
       {/* LOWER WALLS (Stone/Wood) */}
       <mesh position={[0, 1.5, 0]} castShadow receiveShadow>
         <boxGeometry args={[5.5, 2, 5.5]} />
-        <meshStandardMaterial color="#b9d2e2ff" />
+        <meshStandardMaterial color="#97bbccff" />
       </mesh>
 
       {/* UPPER WALLS/TRIM */}

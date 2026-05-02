@@ -24,7 +24,9 @@ export const HUD = ({ user, hoveredRepo, onResetCamera }) => {
       {/* Hovered repo tooltip (village only) */}
       {hoveredRepo && (
         <div className="repo-tooltip">
-          <div className="repo-name">{hoveredRepo.name}</div>
+          <div className="repo-name">
+            {hoveredRepo.name} {hoveredRepo.isStarred && <span style={{fontSize: '0.8em', color: '#ffd700', marginLeft: '6px'}}>★ Starred</span>}
+          </div>
           {hoveredRepo.language && (
             <div className="repo-lang">{hoveredRepo.language}</div>
           )}

@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
+import { Float } from '@react-three/drei';
 import { GET_STYLIZED_COLOR_FOR_LANG, ROOF_COLORS } from './Constants';
 import GitVilleHouse from './GitVilleHouse';
 
@@ -55,6 +56,14 @@ export const Building = ({ repo, position, rotation, onHover, onUnhover, index =
         roofColor={roofColor}
         style={index % 4}
       />
+      {repo.isStarred && (
+        <Float speed={3} rotationIntensity={2} floatIntensity={2} position={[0, 4, 0]}>
+          <mesh castShadow>
+            <octahedronGeometry args={[0.6]} />
+            <meshStandardMaterial color="#ffd700" emissive="#ffaa00" emissiveIntensity={0.6} roughness={0.2} metalness={0.8} />
+          </mesh>
+        </Float>
+      )}
     </group>
   );
 };

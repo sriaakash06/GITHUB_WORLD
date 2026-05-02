@@ -16,22 +16,50 @@ function App() {
     setLoading(true);
     try {
       const response = await fetch(
-        `https://api.github.com/users/${username}/repos?sort=updated&per_page=60`
+        `https://api.github.com/users/${username}/repos?sort=updated&per_page=40`
       );
       if (!response.ok) throw new Error('User not found');
       const data = await response.json();
 
-      const totalStars     = data.reduce((acc, r) => acc + r.stargazers_count, 0);
-      const processedRepos = data.map((r) => ({
-        name:             r.name,
-        language:         r.language,
-        stargazers_count: r.stargazers_count,
-        commits:          Math.floor(Math.random() * 100) + r.stargazers_count,
-        html_url:         r.html_url,
-        description:      r.description,
-      }));
+      let starredData = [];
+      try {
+        const starredResponse = await fetch(
+          `https://api.github.com/users/${username}/starred?per_page=20`
+        );
+        if (starredResponse.ok) {
+          starredData = await starredResponse.json();
+        }
+      } catch (e) {
+        console.warn("Could not fetch starred repos", e);
+      }
 
-      setRepos(processedRepos);
+      const totalStars     = data.reduce((acc, r) => acc + r.stargazers_count, 0);
+      
+      const processedRepos = [
+        ...data.map((r) => ({
+          name:             r.name,
+          language:         r.language,
+          stargazers_count: r.stargazers_count,
+          commits:          Math.floor(Math.random() * 100) + r.stargazers_count,
+          html_url:         r.html_url,
+          description:      r.description,
+          isStarred:        false,
+        })),
+        ...starredData.map((r) => ({
+          name:             r.name,
+          language:         r.language,
+          stargazers_count: r.stargazers_count,
+          commits:          Math.floor(Math.random() * 100) + r.stargazers_count,
+          html_url:         r.html_url,
+          description:      r.description,
+          isStarred:        true,
+        }))
+      ];
+
+      // Remove duplicates based on html_url (if user starred their own repo)
+      const uniqueRepos = Array.from(new Map(processedRepos.map(r => [r.html_url, r])).values());
+
+      setRepos(uniqueRepos);
       setUser({
         username,
         avatar:    data[0]?.owner.avatar_url || '',
