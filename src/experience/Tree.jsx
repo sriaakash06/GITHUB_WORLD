@@ -10,6 +10,7 @@ export const Tree = ({ position = [0, 0, 0], scale = 1 }) => {
         <meshStandardMaterial color={PALETTE.trunk} roughness={0.9} flatShading />
       </mesh>
 
+
       {/* Main foliage sphere – round and fluffy */}
       <mesh position={[0, 1.9, 0]} castShadow>
         <sphereGeometry args={[0.82, 7, 7]} />
