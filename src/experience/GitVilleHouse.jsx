@@ -44,11 +44,15 @@ export default function GitVilleHouse({
   roofColor = '#e8832a',
   scale = 1,
   style = 0,  // 0–3 for slight shape variations
+  floors = 1, // Determines building height and window rows
 }) {
   // Slight variation per style for more interesting village
   const wallW   = 2.2 + (style % 2) * 0.3;
   const wallD   = 2.0 + ((style + 1) % 2) * 0.3;
-  const wallH   = 1.8 + (style % 3) * 0.2;
+  const baseWallH = 1.8 + (style % 3) * 0.2;
+  
+  // Height increases with floors
+  const wallH   = baseWallH + (floors - 1) * 1.4;
   const roofH   = 0.9 + (style % 2) * 0.15;
 
   // Wall color slight variation
@@ -82,10 +86,10 @@ export default function GitVilleHouse({
 
       {/* CHIMNEY */}
       <mesh position={[wallW * 0.2, wallH + roofH * 0.55 + 0.3, wallD * 0.15]} castShadow>
-        <boxGeometry args={[0.28, 0.55, 0.28]} />
+        <boxGeometry args={[0.28, 0.55 + (floors > 3 ? 0.3 : 0), 0.28]} />
         <meshStandardMaterial color={PALETTE.chimney} flatShading />
       </mesh>
-      <mesh position={[wallW * 0.2, wallH + roofH * 0.55 + 0.6, wallD * 0.15]}>
+      <mesh position={[wallW * 0.2, wallH + roofH * 0.55 + 0.6 + (floors > 3 ? 0.3 : 0), wallD * 0.15]}>
         <boxGeometry args={[0.36, 0.12, 0.36]} />
         <meshStandardMaterial color="#8a7860" flatShading />
       </mesh>
@@ -107,22 +111,34 @@ export default function GitVilleHouse({
         <meshStandardMaterial color={PALETTE.stone} flatShading />
       </mesh>
 
-      {/* WINDOWS – front */}
-      {wallW > 2.3 && (
-        <>
-          <SmallWindow position={[-wallW * 0.27, wallH * 0.55 + 0.3, wallD / 2 + 0.02]} />
-          <SmallWindow position={[wallW * 0.27, wallH * 0.55 + 0.3, wallD / 2 + 0.02]} />
-        </>
-      )}
-      {wallW <= 2.3 && (
-        <SmallWindow position={[wallW * 0.22, wallH * 0.55 + 0.3, wallD / 2 + 0.02]} />
-      )}
-
-      {/* WINDOW – side */}
-      <SmallWindow
-        position={[wallW / 2 + 0.02, wallH * 0.5 + 0.3, 0]}
-        rotation={[0, Math.PI / 2, 0]}
-      />
+      {/* WINDOWS PER FLOOR */}
+      {Array.from({ length: floors }).map((_, f) => {
+        const floorY = 1.25 + f * 1.4; // Initial window Y is ~1.25, each floor adds 1.4
+        return (
+          <group key={f}>
+            {/* Front Windows */}
+            {wallW > 2.3 ? (
+              <>
+                <SmallWindow position={[-wallW * 0.27, floorY, wallD / 2 + 0.02]} />
+                <SmallWindow position={[wallW * 0.27, floorY, wallD / 2 + 0.02]} />
+              </>
+            ) : (
+              // If narrow, only put center window on upper floors (avoiding door)
+              f > 0 && <SmallWindow position={[wallW * 0.22, floorY, wallD / 2 + 0.02]} />
+            )}
+            
+            {/* Side Windows */}
+            <SmallWindow
+              position={[wallW / 2 + 0.02, floorY, 0]}
+              rotation={[0, Math.PI / 2, 0]}
+            />
+            <SmallWindow
+              position={[-wallW / 2 - 0.02, floorY, 0]}
+              rotation={[0, -Math.PI / 2, 0]}
+            />
+          </group>
+        );
+      })}
     </group>
   );
 }

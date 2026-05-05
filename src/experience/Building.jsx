@@ -18,6 +18,17 @@ export const Building = ({ repo, position, rotation, onHover, onUnhover, onClick
     [repo.stargazers_count]
   );
 
+  const floors = useMemo(() => {
+    const stars = repo.stargazers_count || 0;
+    if (stars < 10) return 1;
+    if (stars < 50) return 2;
+    if (stars < 200) return 3;
+    if (stars < 1000) return 4;
+    return 4 + Math.floor(Math.log10(stars / 100)); // Logarithmic scaling for huge repos
+  }, [repo.stargazers_count]);
+
+  const heightOffset = floors * 1.4 + 2.5;
+
   // Smooth hover pop animation
   useFrame((_, delta) => {
     if (!groupRef.current) return;
@@ -52,12 +63,13 @@ export const Building = ({ repo, position, rotation, onHover, onUnhover, onClick
       <GitVilleHouse
         roofColor={roofColor}
         style={index % 4}
+        floors={floors}
       />
       {hovered && (
-        <pointLight position={[0, 4, 0]} intensity={3} distance={12} color={roofColor} />
+        <pointLight position={[0, heightOffset - 1, 0]} intensity={3} distance={12} color={roofColor} />
       )}
       {repo.isStarred && (
-        <Float speed={3} rotationIntensity={2} floatIntensity={2} position={[0, 4, 0]}>
+        <Float speed={3} rotationIntensity={2} floatIntensity={2} position={[0, heightOffset - 1, 0]}>
           <mesh castShadow>
             <octahedronGeometry args={[0.6]} />
             <meshStandardMaterial color="#ffd700" emissive="#ffaa00" emissiveIntensity={0.6} roughness={0.2} metalness={0.8} />
@@ -66,7 +78,7 @@ export const Building = ({ repo, position, rotation, onHover, onUnhover, onClick
       )}
 
       {isSelected && (
-        <Html position={[0, 6, 0]} center zIndexRange={[100, 0]}>
+        <Html position={[0, heightOffset + 1.5, 0]} center zIndexRange={[100, 0]}>
           <div className="repo-modal" style={{
             background: 'rgba(20, 25, 35, 0.95)',
             border: `2px solid ${roofColor}`,
