@@ -3,9 +3,11 @@ import { useFrame } from '@react-three/fiber';
 import { Float, Html } from '@react-three/drei';
 import { GET_STYLIZED_COLOR_FOR_LANG, ROOF_COLORS } from './Constants';
 import GitVilleHouse from './GitVilleHouse';
+import { Particles } from './Particles';
 
 export const Building = ({ repo, position, rotation, onHover, onUnhover, onClick, isSelected, index = 0 }) => {
   const [hovered, setHovered] = useState(false);
+  const [showParticles, setShowParticles] = useState(false);
   const groupRef = useRef();
 
   const roofColor = useMemo(
@@ -58,6 +60,7 @@ export const Building = ({ repo, position, rotation, onHover, onUnhover, onClick
       onPointerUp={(e) => {
         e.stopPropagation();
         if (onClick) onClick(repo, position);
+        setShowParticles(true);
       }}
     >
       <GitVilleHouse
@@ -75,6 +78,10 @@ export const Building = ({ repo, position, rotation, onHover, onUnhover, onClick
             <meshStandardMaterial color="#ffd700" emissive="#ffaa00" emissiveIntensity={0.6} roughness={0.2} metalness={0.8} />
           </mesh>
         </Float>
+      )}
+
+      {showParticles && (
+        <Particles position={[0, heightOffset / 2, 0]} color={roofColor} onComplete={() => setShowParticles(false)} />
       )}
 
       {isSelected && (

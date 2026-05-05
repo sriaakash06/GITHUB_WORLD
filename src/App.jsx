@@ -11,6 +11,7 @@ function App() {
   const [loading, setLoading]         = useState(false);
   const [isCinematic, setIsCinematic] = useState(true);
   const [hoveredRepo, setHoveredRepo] = useState(null);
+  const [isNightMode, setIsNightMode] = useState(false);
 
   const fetchUserData = async (username) => {
     setLoading(true);
@@ -76,7 +77,7 @@ function App() {
 
   const resetCamera = () => window.dispatchEvent(new CustomEvent('reset-camera'));
 
-  const skyColor = '#93d8f5';
+  const skyColor = isNightMode ? '#0B1021' : '#93d8f5';
 
   return (
     <div className="app-container">
@@ -95,6 +96,7 @@ function App() {
           user={user}
           isCinematic={isCinematic}
           setHoveredRepo={setHoveredRepo}
+          isNightMode={isNightMode}
         />
       </Canvas>
 
@@ -103,6 +105,8 @@ function App() {
           user={user}
           hoveredRepo={hoveredRepo}
           onResetCamera={resetCamera}
+          isNightMode={isNightMode}
+          onToggleNightMode={() => setIsNightMode(!isNightMode)}
         />
       )}
       {loading && <LoadingScreen />}

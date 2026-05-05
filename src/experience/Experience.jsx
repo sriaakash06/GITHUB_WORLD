@@ -13,56 +13,78 @@ import { Vehicle } from './Vehicle';
 // ─────────────────────────────────────────────
 // CLOUD  – puffy low-poly overlapping spheres
 // ─────────────────────────────────────────────
-const Cloud = ({ position, scale = 1 }) => (
-  <Float speed={1.2} rotationIntensity={0.1} floatIntensity={0.6}>
-    <group position={position} scale={scale}>
-      <mesh castShadow>
-        <sphereGeometry args={[1.3, 7, 7]} />
-        <meshStandardMaterial color="#ffffff" roughness={1} flatShading />
-      </mesh>
-      <mesh position={[-1.1, -0.25, 0.1]} castShadow>
-        <sphereGeometry args={[0.95, 7, 7]} />
-        <meshStandardMaterial color="#f8f8f8" roughness={1} flatShading />
-      </mesh>
-      <mesh position={[1.1, -0.2, -0.15]} castShadow>
-        <sphereGeometry args={[0.95, 7, 7]} />
-        <meshStandardMaterial color="#f8f8f8" roughness={1} flatShading />
-      </mesh>
-      <mesh position={[0.45, 0.55, 0.4]} castShadow>
-        <sphereGeometry args={[0.78, 6, 6]} />
-        <meshStandardMaterial color="#ffffff" roughness={1} flatShading />
-      </mesh>
-      <mesh position={[-0.5, 0.45, -0.35]} castShadow>
-        <sphereGeometry args={[0.72, 6, 6]} />
-        <meshStandardMaterial color="#efefef" roughness={1} flatShading />
-      </mesh>
+const Cloud = ({ position, scale = 1, speed = 0.5 }) => {
+  const ref = useRef();
+  useFrame((_, delta) => {
+    if (ref.current) {
+      ref.current.position.x -= speed * delta * 5;
+      if (ref.current.position.x < -100) ref.current.position.x = 100;
+    }
+  });
+  return (
+    <group ref={ref} position={position} scale={scale}>
+      <Float speed={1.2} rotationIntensity={0.1} floatIntensity={0.6}>
+        <group>
+          <mesh castShadow>
+            <sphereGeometry args={[1.3, 7, 7]} />
+            <meshStandardMaterial color="#ffffff" roughness={1} flatShading />
+          </mesh>
+          <mesh position={[-1.1, -0.25, 0.1]} castShadow>
+            <sphereGeometry args={[0.95, 7, 7]} />
+            <meshStandardMaterial color="#f8f8f8" roughness={1} flatShading />
+          </mesh>
+          <mesh position={[1.1, -0.2, -0.15]} castShadow>
+            <sphereGeometry args={[0.95, 7, 7]} />
+            <meshStandardMaterial color="#f8f8f8" roughness={1} flatShading />
+          </mesh>
+          <mesh position={[0.45, 0.55, 0.4]} castShadow>
+            <sphereGeometry args={[0.78, 6, 6]} />
+            <meshStandardMaterial color="#ffffff" roughness={1} flatShading />
+          </mesh>
+          <mesh position={[-0.5, 0.45, -0.35]} castShadow>
+            <sphereGeometry args={[0.72, 6, 6]} />
+            <meshStandardMaterial color="#efefef" roughness={1} flatShading />
+          </mesh>
+        </group>
+      </Float>
     </group>
-  </Float>
-);
+  );
+};
 
 // ─────────────────────────────────────────────
 // HOT AIR BALLOON
 // ─────────────────────────────────────────────
-const HotAirBalloon = ({ position, color, scale = 1 }) => (
-  <Float speed={1.5} rotationIntensity={0.2} floatIntensity={1.5}>
-    <group position={position} scale={scale}>
-      <mesh castShadow>
-        <sphereGeometry args={[2, 16, 16]} />
-        <meshStandardMaterial color={color} roughness={0.6} flatShading />
-      </mesh>
-      <mesh position={[0, -2.5, 0]} castShadow>
-        <boxGeometry args={[0.8, 0.6, 0.8]} />
-        <meshStandardMaterial color="#8b4513" roughness={0.9} flatShading />
-      </mesh>
-      {[[-0.35, -0.35], [0.35, -0.35], [-0.35, 0.35], [0.35, 0.35]].map(([x, z], i) => (
-        <mesh key={i} position={[x, -1.5, z]} castShadow>
-          <cylinderGeometry args={[0.02, 0.02, 1.6]} />
-          <meshStandardMaterial color="#2d3436" flatShading />
-        </mesh>
-      ))}
+const HotAirBalloon = ({ position, color, scale = 1, speed = 1 }) => {
+  const ref = useRef();
+  useFrame((_, delta) => {
+    if (ref.current) {
+      ref.current.position.z -= speed * delta * 3;
+      if (ref.current.position.z < -100) ref.current.position.z = 100;
+    }
+  });
+  return (
+    <group ref={ref} position={position} scale={scale}>
+      <Float speed={1.5} rotationIntensity={0.2} floatIntensity={1.5}>
+        <group>
+          <mesh castShadow>
+            <sphereGeometry args={[2, 16, 16]} />
+            <meshStandardMaterial color={color} roughness={0.6} flatShading />
+          </mesh>
+          <mesh position={[0, -2.5, 0]} castShadow>
+            <boxGeometry args={[0.8, 0.6, 0.8]} />
+            <meshStandardMaterial color="#8b4513" roughness={0.9} flatShading />
+          </mesh>
+          {[[-0.35, -0.35], [0.35, -0.35], [-0.35, 0.35], [0.35, 0.35]].map(([x, z], i) => (
+            <mesh key={i} position={[x, -1.5, z]} castShadow>
+              <cylinderGeometry args={[0.02, 0.02, 1.6]} />
+              <meshStandardMaterial color="#2d3436" flatShading />
+            </mesh>
+          ))}
+        </group>
+      </Float>
     </group>
-  </Float>
-);
+  );
+};
 
 // ─────────────────────────────────────────────
 // CITY TERRAIN
@@ -157,7 +179,7 @@ const CityRoads = () => {
 // ─────────────────────────────────────────────
 // LAMP POST
 // ─────────────────────────────────────────────
-const LampPost = ({ position }) => (
+const LampPost = ({ position, isNightMode }) => (
   <group position={position}>
     <mesh castShadow>
       <cylinderGeometry args={[0.06, 0.08, 2.8, 6]} />
@@ -169,15 +191,16 @@ const LampPost = ({ position }) => (
     </mesh>
     <mesh position={[0.7, 1.15, 0]} castShadow>
       <sphereGeometry args={[0.18, 7, 7]} />
-      <meshStandardMaterial color="#fff8d0" emissive="#ffe890" emissiveIntensity={0.6} flatShading />
+      <meshStandardMaterial color="#fff8d0" emissive="#ffe890" emissiveIntensity={isNightMode ? 2.5 : 0.6} flatShading />
     </mesh>
+    {isNightMode && <pointLight position={[0.7, 1.5, 0]} intensity={1.5} distance={15} color="#ffe890" />}
   </group>
 );
 
 // ─────────────────────────────────────────────
 // MAIN EXPERIENCE
 // ─────────────────────────────────────────────
-export const Experience = ({ repos, user, isCinematic, setHoveredRepo }) => {
+export const Experience = ({ repos, user, isCinematic, setHoveredRepo, isNightMode }) => {
   const controlsRef = useRef();
   const { camera } = useThree();
   const [selectedRepo, setSelectedRepo] = useState(null);
@@ -365,6 +388,7 @@ export const Experience = ({ repos, user, isCinematic, setHoveredRepo }) => {
       clouds.push({
         position: [Math.cos(angle) * radius, 18 + seed(n + 70) * 8, Math.sin(angle) * radius],
         scale: 0.9 + seed(n + 80) * 1.2,
+        speed: 0.5 + seed(n + 85) * 1.5,
       });
     });
 
@@ -377,6 +401,7 @@ export const Experience = ({ repos, user, isCinematic, setHoveredRepo }) => {
         position: [Math.cos(angle) * radius, 12 + seed(i + 1100) * 12, Math.sin(angle) * radius],
         scale: 0.7 + seed(i + 1200) * 0.6,
         color: balloonColors[i % balloonColors.length],
+        speed: 0.5 + seed(i + 1300) * 1.5,
       });
     }
 
@@ -399,11 +424,11 @@ export const Experience = ({ repos, user, isCinematic, setHoveredRepo }) => {
 
       {/* ── LIGHTING ── */}
       <SoftShadows size={22} samples={12} focus={0} />
-      <ambientLight intensity={1.4} color="#ffd4a3" />
+      <ambientLight intensity={isNightMode ? 0.2 : 1.4} color={isNightMode ? "#8aa2d6" : "#ffd4a3"} />
       <directionalLight
         position={[40, 60, 30]}
-        intensity={2.2}
-        color="#ffedcc"
+        intensity={isNightMode ? 0.3 : 2.2}
+        color={isNightMode ? "#647bb5" : "#ffedcc"}
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-camera-near={0.5}
@@ -415,9 +440,9 @@ export const Experience = ({ repos, user, isCinematic, setHoveredRepo }) => {
         shadow-bias={-0.0005}
       />
       {/* Fill light from opposite side for soft shadows */}
-      <directionalLight position={[-20, 30, -20]} intensity={0.4} color="#87CEEB" />
+      <directionalLight position={[-20, 30, -20]} intensity={isNightMode ? 0.2 : 0.4} color={isNightMode ? "#314366" : "#87CEEB"} />
       {/* Warm ground bounce */}
-      <hemisphereLight skyColor="#87CEEB" groundColor="#74cf4a" intensity={0.6} />
+      <hemisphereLight skyColor={isNightMode ? "#0B1021" : "#87CEEB"} groundColor={isNightMode ? "#08101a" : "#74cf4a"} intensity={isNightMode ? 0.4 : 0.6} />
 
       <group>
         {/* ── CITY TERRAIN ── */}
@@ -451,7 +476,7 @@ export const Experience = ({ repos, user, isCinematic, setHoveredRepo }) => {
 
         {/* ── LAMP POSTS ── */}
         {staticAssets.lamps.map((pos, i) => (
-          <LampPost key={`lamp-${i}`} position={pos} />
+          <LampPost key={`lamp-${i}`} position={pos} isNightMode={isNightMode} />
         ))}
 
         {/* ── VEHICLES ── */}
@@ -461,12 +486,12 @@ export const Experience = ({ repos, user, isCinematic, setHoveredRepo }) => {
 
         {/* ── CLOUDS ── */}
         {staticAssets.clouds.map((c, i) => (
-          <Cloud key={`cloud-${i}`} position={c.position} scale={c.scale} />
+          <Cloud key={`cloud-${i}`} position={c.position} scale={c.scale} speed={c.speed} />
         ))}
 
         {/* ── BALLOONS ── */}
         {staticAssets.balloons.map((b, i) => (
-          <HotAirBalloon key={`balloon-${i}`} position={b.position} color={b.color} scale={b.scale} />
+          <HotAirBalloon key={`balloon-${i}`} position={b.position} color={b.color} scale={b.scale} speed={b.speed} />
         ))}
       </group>
 

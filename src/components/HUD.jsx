@@ -1,10 +1,13 @@
 import React from 'react';
 
-export const HUD = ({ user, hoveredRepo, onResetCamera }) => {
+export const HUD = ({ user, hoveredRepo, onResetCamera, isNightMode, onToggleNightMode }) => {
   return (
     <div id="hud">
       {/* Top-right controls */}
       <div className="hud-top">
+        <button className="reset-btn" onClick={onToggleNightMode}>
+          {isNightMode ? '☀️ Day Mode' : '🌙 Night Mode'}
+        </button>
         <button className="reset-btn" onClick={onResetCamera}>⌖ Reset View</button>
 
         {user.avatar && (
