@@ -1,6 +1,6 @@
-import React, { useMemo, useRef, useEffect } from 'react';
+import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { OrbitControls, ContactShadows, Float, SoftShadows } from '@react-three/drei';
-import { useThree } from '@react-three/fiber';
+import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import gsap from 'gsap';
 
@@ -67,8 +67,8 @@ const HotAirBalloon = ({ position, color, scale = 1 }) => (
 // ─────────────────────────────────────────────
 // CITY TERRAIN
 // ─────────────────────────────────────────────
-const CityTerrain = () => (
-  <group>
+const CityTerrain = ({ onPointerUp }) => (
+  <group onPointerUp={onPointerUp}>
     {/* Base concrete/grass */}
     <mesh position={[0, -0.5, 0]} receiveShadow>
       <boxGeometry args={[120, 1, 120]} />
@@ -180,6 +180,86 @@ const LampPost = ({ position }) => (
 export const Experience = ({ repos, user, isCinematic, setHoveredRepo }) => {
   const controlsRef = useRef();
   const { camera } = useThree();
+  const [selectedRepo, setSelectedRepo] = useState(null);
+  const keys = useRef({ w: false, a: false, s: false, d: false });
+
+  // WASD controls
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const key = e.key.toLowerCase();
+      if (['w', 'a', 's', 'd'].includes(key)) keys.current[key] = true;
+      if (key === 'escape' && selectedRepo) setSelectedRepo(null);
+    };
+    const handleKeyUp = (e) => {
+      const key = e.key.toLowerCase();
+      if (['w', 'a', 's', 'd'].includes(key)) keys.current[key] = false;
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [selectedRepo]);
+
+  useFrame((state, delta) => {
+    if (selectedRepo || isCinematic || !controlsRef.current) return;
+    
+    let speed = 40 * delta;
+    if (keys.current.w || keys.current.s || keys.current.a || keys.current.d) {
+      const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+      forward.y = 0;
+      forward.normalize();
+      
+      const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+      right.y = 0;
+      right.normalize();
+
+      const moveVec = new THREE.Vector3(0, 0, 0);
+      if (keys.current.w) moveVec.addScaledVector(forward, speed);
+      if (keys.current.s) moveVec.addScaledVector(forward, -speed);
+      if (keys.current.a) moveVec.addScaledVector(right, -speed);
+      if (keys.current.d) moveVec.addScaledVector(right, speed);
+      
+      controlsRef.current.target.add(moveVec);
+      camera.position.add(moveVec);
+    }
+  });
+
+  const handleBuildingClick = (repo, buildingPosition) => {
+    setSelectedRepo(repo);
+    
+    // Zoom to building
+    const targetCameraPos = new THREE.Vector3(
+      buildingPosition[0] - 12,
+      buildingPosition[1] + 15,
+      buildingPosition[2] + 15
+    );
+    const lookAtPos = new THREE.Vector3(
+      buildingPosition[0],
+      buildingPosition[1] + 4,
+      buildingPosition[2]
+    );
+
+    gsap.killTweensOf(camera.position);
+    gsap.killTweensOf(controlsRef.current.target);
+
+    gsap.to(camera.position, {
+      x: targetCameraPos.x,
+      y: targetCameraPos.y,
+      z: targetCameraPos.z,
+      duration: 1.5,
+      ease: 'power3.inOut'
+    });
+
+    gsap.to(controlsRef.current.target, {
+      x: lookAtPos.x,
+      y: lookAtPos.y,
+      z: lookAtPos.z,
+      duration: 1.5,
+      ease: 'power3.inOut'
+    });
+  };
 
   useEffect(() => {
     camera.position.set(55, 55, 55);
@@ -189,9 +269,13 @@ export const Experience = ({ repos, user, isCinematic, setHoveredRepo }) => {
     }
 
     const onReset = () => {
+      setSelectedRepo(null);
+      gsap.killTweensOf(camera.position);
+      if (controlsRef.current) gsap.killTweensOf(controlsRef.current.target);
+
       gsap.to(camera.position, { x: 55, y: 55, z: 55, duration: 1.5, ease: 'power3.out' });
       if (controlsRef.current) {
-        gsap.to(controlsRef.current.target, { x: 0, y: 3, z: 0, duration: 1.5 });
+        gsap.to(controlsRef.current.target, { x: 0, y: 3, z: 0, duration: 1.5, ease: 'power3.out' });
       }
     };
 
@@ -337,7 +421,7 @@ export const Experience = ({ repos, user, isCinematic, setHoveredRepo }) => {
 
       <group>
         {/* ── CITY TERRAIN ── */}
-        <CityTerrain />
+        <CityTerrain onPointerUp={(e) => { e.stopPropagation(); setSelectedRepo(null); }} />
 
         {/* ── CITY ROADS ── */}
         <CityRoads />
@@ -353,6 +437,8 @@ export const Experience = ({ repos, user, isCinematic, setHoveredRepo }) => {
             index={i}
             position={repo.position}
             rotation={repo.rotation}
+            isSelected={selectedRepo?.name === repo.name}
+            onClick={handleBuildingClick}
             onHover={() => setHoveredRepo(repo)}
             onUnhover={() => setHoveredRepo(null)}
           />
