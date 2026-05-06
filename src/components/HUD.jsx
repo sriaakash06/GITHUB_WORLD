@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 
 export const HUD = ({ 
   user, 
@@ -14,6 +14,7 @@ export const HUD = ({
   minStars,
   setMinStars
 }) => {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const languages = useMemo(() => {
     if (!repos) return [];
@@ -52,8 +53,21 @@ export const HUD = ({
         )}
       </div>
 
+      {/* Sidebar Toggle Button */}
+      <button 
+        className={`sidebar-toggle-btn ${isSidebarOpen ? 'open' : ''}`}
+        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+      >
+        <div className="hamburger">
+          <span className="line"></span>
+          <span className="line"></span>
+          <span className="line"></span>
+        </div>
+        <span className="toggle-text">Dashboard</span>
+      </button>
+
       {/* Sidebar Overlay */}
-      <div className="hud-sidebar">
+      <div className={`hud-sidebar ${isSidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-section">
           <h2 className="sidebar-title">Dashboard</h2>
           
