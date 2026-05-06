@@ -446,7 +446,11 @@ export const Experience = ({ repos, user, isCinematic, setHoveredRepo, isNightMo
 
       <group>
         {/* ── CITY TERRAIN ── */}
-        <CityTerrain onPointerUp={(e) => { e.stopPropagation(); setSelectedRepo(null); }} />
+        <CityTerrain onPointerUp={(e) => { 
+          if (e.button !== 0) return;
+          e.stopPropagation(); 
+          setSelectedRepo(null); 
+        }} />
 
         {/* ── CITY ROADS ── */}
         <CityRoads />

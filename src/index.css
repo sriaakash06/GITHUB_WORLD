@@ -236,8 +236,8 @@ canvas {
 /* Hovered repo tooltip */
 .repo-tooltip {
   position: absolute;
-  top: 40px;
-  left: 52px;
+  bottom: 40px;
+  right: 52px;
   pointer-events: none;
   background: var(--panel-bg);
   backdrop-filter: blur(var(--panel-blur));
@@ -421,7 +421,7 @@ canvas {
 .sidebar-toggle-btn {
   position: absolute;
   top: 40px;
-  left: 52px;
+  left: 32px;
   background: var(--panel-bg);
   backdrop-filter: blur(var(--panel-blur));
   -webkit-backdrop-filter: blur(var(--panel-blur));
@@ -479,24 +479,23 @@ canvas {
 /* ── HUD Sidebar ────────────────────────────────── */
 .hud-sidebar {
   position: absolute;
-  top: 96px;
-  left: 52px;
-  width: 280px;
-  background: var(--panel-bg);
-  backdrop-filter: blur(var(--panel-blur));
-  -webkit-backdrop-filter: blur(var(--panel-blur));
-  border: 2px solid rgba(255,255,255,0.75);
-  border-radius: var(--radius);
-  padding: 24px;
-  box-shadow: var(--shadow);
+  top: 0;
+  left: 0;
+  height: 100vh;
+  width: 320px;
+  background: rgba(255, 251, 232, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 2px solid rgba(255,255,255,0.75);
+  padding: 100px 32px 32px 32px;
+  box-shadow: 10px 0 40px rgba(45, 32, 24, 0.15);
   display: flex;
   flex-direction: column;
   gap: 24px;
-  max-height: calc(100vh - 180px);
   overflow-y: auto;
   
   /* Collapsed state by default */
-  transform: translateX(calc(-100% - 60px));
+  transform: translateX(-100%);
   opacity: 0;
   pointer-events: none;
   transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
@@ -667,3 +666,38 @@ canvas {
   box-shadow: 0 2px 6px rgba(232,131,42,0.4);
   border: 2px solid white;
 }
+
+/* ── Mobile Responsiveness ──────────────────────── */
+@media (max-width: 768px) {
+  .hud-top {
+    top: 24px;
+    right: 24px;
+    gap: 6px;
+  }
+  
+  .reset-btn {
+    padding: 6px 12px;
+    font-size: 0.75rem;
+  }
+
+  .sidebar-toggle-btn {
+    top: 24px;
+    left: 24px;
+    padding: 10px; /* smaller padding */
+  }
+
+  /* Hide the word "Dashboard" on mobile to save space */
+  .sidebar-toggle-btn .toggle-text {
+    display: none;
+  }
+
+  .hud-village-name {
+    font-size: 2.2rem;
+  }
+
+  .hud-sidebar {
+    width: 280px;
+    padding: 80px 24px 24px 24px;
+  }
+}
+

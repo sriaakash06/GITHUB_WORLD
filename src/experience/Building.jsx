@@ -58,6 +58,7 @@ export const Building = ({ repo, position, rotation, onHover, onUnhover, onClick
         onUnhover && onUnhover();
       }}
       onPointerUp={(e) => {
+        if (e.button !== 0) return;
         e.stopPropagation();
         if (onClick) onClick(repo, position);
         setShowParticles(true);
