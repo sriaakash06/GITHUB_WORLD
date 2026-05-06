@@ -1,6 +1,34 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 
-export const HUD = ({ user, hoveredRepo, onResetCamera, isNightMode, onToggleNightMode }) => {
+export const HUD = ({ 
+  user, 
+  repos,
+  hoveredRepo, 
+  onResetCamera, 
+  isNightMode, 
+  onToggleNightMode,
+  searchQuery,
+  setSearchQuery,
+  selectedLanguage,
+  setSelectedLanguage,
+  minStars,
+  setMinStars
+}) => {
+
+  const languages = useMemo(() => {
+    if (!repos) return [];
+    const counts = {};
+    repos.forEach(r => {
+      if (r.language) {
+        counts[r.language] = (counts[r.language] || 0) + 1;
+      }
+    });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  }, [repos]);
+
+  const topLanguages = languages.slice(0, 3);
+  const allLanguages = languages.map(l => l[0]).sort();
+
   return (
     <div id="hud">
       {/* Top-right controls */}
@@ -22,6 +50,80 @@ export const HUD = ({ user, hoveredRepo, onResetCamera, isNightMode, onToggleNig
             }}
           />
         )}
+      </div>
+
+      {/* Sidebar Overlay */}
+      <div className="hud-sidebar">
+        <div className="sidebar-section">
+          <h2 className="sidebar-title">Dashboard</h2>
+          
+          <div className="hud-stats-vertical">
+            <div className="stat-pill-v">
+              <span className="stat-label">Total Repos</span>
+              <span className="stat-value">{user.repoCount}</span>
+            </div>
+            <div className="stat-pill-v">
+              <span className="stat-label">Total Stars</span>
+              <span className="stat-value">{user.starCount}</span>
+            </div>
+          </div>
+        </div>
+
+        {topLanguages.length > 0 && (
+          <div className="sidebar-section">
+            <h3 className="sidebar-subtitle">Most Used Languages</h3>
+            <div className="lang-list">
+              {topLanguages.map(([lang, count]) => (
+                <div key={lang} className="lang-item">
+                  <span className="lang-name">{lang}</span>
+                  <span className="lang-count">{count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="sidebar-section">
+          <h3 className="sidebar-subtitle">Find Repositories</h3>
+          <div className="filter-group">
+            <input 
+              type="text" 
+              className="glass-input" 
+              placeholder="Search..." 
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+            />
+          </div>
+          
+          <div className="filter-group">
+            <select 
+              className="glass-select" 
+              value={selectedLanguage}
+              onChange={e => setSelectedLanguage(e.target.value)}
+            >
+              <option value="">All Languages</option>
+              {allLanguages.map(lang => (
+                <option key={lang} value={lang}>{lang}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="filter-group">
+            <div className="range-label">
+              <span>Min Stars:</span>
+              <span>{minStars}</span>
+            </div>
+            <input 
+              type="range" 
+              className="glass-range"
+              min="0" 
+              max="5000" 
+              step="1"
+              value={minStars}
+              onChange={e => setMinStars(Number(e.target.value))}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Hovered repo tooltip (village only) */}
@@ -46,16 +148,6 @@ export const HUD = ({ user, hoveredRepo, onResetCamera, isNightMode, onToggleNig
           <div className="hud-eyebrow">GitVille</div>
           <h1 className="hud-village-name">{user.username}'s World</h1>
           <div className="hud-subtitle">Your GitHub universe in 3D</div>
-        </div>
-        <div className="hud-stats">
-          <div className="stat-pill">
-            <span className="stat-value">{user.repoCount}</span>
-            <span className="stat-label">Repos</span>
-          </div>
-          <div className="stat-pill">
-            <span className="stat-value">{user.starCount}</span>
-            <span className="stat-label">Stars</span>
-          </div>
         </div>
       </div>
     </div>

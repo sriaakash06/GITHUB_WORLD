@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Experience } from './experience/Experience';
 import { LoginScreen } from './components/LoginScreen';
@@ -12,6 +12,11 @@ function App() {
   const [isCinematic, setIsCinematic] = useState(true);
   const [hoveredRepo, setHoveredRepo] = useState(null);
   const [isNightMode, setIsNightMode] = useState(false);
+  
+  // Filtering state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedLanguage, setSelectedLanguage] = useState('');
+  const [minStars, setMinStars] = useState(0);
 
   const fetchUserData = async (username) => {
     setLoading(true);
@@ -79,6 +84,16 @@ function App() {
 
   const skyColor = isNightMode ? '#0B1021' : '#93d8f5';
 
+  const filteredRepos = useMemo(() => {
+    return repos.filter(r => {
+      const matchesSearch = r.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                            (r.description && r.description.toLowerCase().includes(searchQuery.toLowerCase()));
+      const matchesLang = selectedLanguage ? r.language === selectedLanguage : true;
+      const matchesStars = r.stargazers_count >= minStars;
+      return matchesSearch && matchesLang && matchesStars;
+    });
+  }, [repos, searchQuery, selectedLanguage, minStars]);
+
   return (
     <div className="app-container">
       {!user && <LoginScreen onLogin={fetchUserData} />}
@@ -92,7 +107,7 @@ function App() {
         <color attach="background" args={[skyColor]} />
 
         <Experience
-          repos={repos}
+          repos={filteredRepos}
           user={user}
           isCinematic={isCinematic}
           setHoveredRepo={setHoveredRepo}
@@ -103,10 +118,17 @@ function App() {
       {user && (
         <HUD
           user={user}
+          repos={repos}
           hoveredRepo={hoveredRepo}
           onResetCamera={resetCamera}
           isNightMode={isNightMode}
           onToggleNightMode={() => setIsNightMode(!isNightMode)}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          selectedLanguage={selectedLanguage}
+          setSelectedLanguage={setSelectedLanguage}
+          minStars={minStars}
+          setMinStars={setMinStars}
         />
       )}
       {loading && <LoadingScreen />}
