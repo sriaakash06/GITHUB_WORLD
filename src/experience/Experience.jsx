@@ -7,22 +7,49 @@ import gsap from 'gsap';
 import { Building } from './Building';
 import { Tree } from './Tree';
 import GitVilleTownHall from './GitVilleTownHall';
-import { PALETTE, ROOF_COLORS } from './Constants';
+import { PALETTE } from './Constants';
 import { Vehicle } from './Vehicle';
 
+const getSpiralIndex = (x, y) => {
+  if (x === 0 && y === 0) return 0;
+  const max = Math.max(Math.abs(x), Math.abs(y));
+  let index = Math.pow(2 * max - 1, 2);
+  if (x === max) {
+    index += max - y;
+  } else if (y === -max) {
+    index += 2 * max + (max - x);
+  } else if (x === -max) {
+    index += 4 * max + (y + max);
+  } else if (y === max) {
+    index += 6 * max + (x + max);
+  }
+  return index;
+};
+
 // ─────────────────────────────────────────────
-// CLOUD  – puffy low-poly overlapping spheres
+// CLOUD
 // ─────────────────────────────────────────────
-const Cloud = ({ position, scale = 1, speed = 0.5 }) => {
+const Cloud = ({ startPos, scale = 1, speed = 0.5 }) => {
   const ref = useRef();
-  useFrame((_, delta) => {
+  const { camera } = useThree();
+  
+  useEffect(() => {
     if (ref.current) {
+      ref.current.position.set(...startPos);
+    }
+  }, [startPos]);
+
+  useFrame((_, delta) => {
+    if (ref.current && camera) {
       ref.current.position.x -= speed * delta * 5;
-      if (ref.current.position.x < -100) ref.current.position.x = 100;
+      if (ref.current.position.x < camera.position.x - 100) {
+        ref.current.position.x = camera.position.x + 100;
+        ref.current.position.z = camera.position.z + (Math.random() - 0.5) * 150;
+      }
     }
   });
   return (
-    <group ref={ref} position={position} scale={scale}>
+    <group ref={ref} scale={scale}>
       <Float speed={1.2} rotationIntensity={0.1} floatIntensity={0.6}>
         <group>
           <mesh castShadow>
@@ -54,16 +81,27 @@ const Cloud = ({ position, scale = 1, speed = 0.5 }) => {
 // ─────────────────────────────────────────────
 // HOT AIR BALLOON
 // ─────────────────────────────────────────────
-const HotAirBalloon = ({ position, color, scale = 1, speed = 1 }) => {
+const HotAirBalloon = ({ startPos, color, scale = 1, speed = 1 }) => {
   const ref = useRef();
-  useFrame((_, delta) => {
+  const { camera } = useThree();
+  
+  useEffect(() => {
     if (ref.current) {
+      ref.current.position.set(...startPos);
+    }
+  }, [startPos]);
+
+  useFrame((_, delta) => {
+    if (ref.current && camera) {
       ref.current.position.z -= speed * delta * 3;
-      if (ref.current.position.z < -100) ref.current.position.z = 100;
+      if (ref.current.position.z < camera.position.z - 100) {
+         ref.current.position.z = camera.position.z + 100;
+         ref.current.position.x = camera.position.x + (Math.random() - 0.5) * 150;
+      }
     }
   });
   return (
-    <group ref={ref} position={position} scale={scale}>
+    <group ref={ref} scale={scale}>
       <Float speed={1.5} rotationIntensity={0.2} floatIntensity={1.5}>
         <group>
           <mesh castShadow>
@@ -82,96 +120,6 @@ const HotAirBalloon = ({ position, color, scale = 1, speed = 1 }) => {
           ))}
         </group>
       </Float>
-    </group>
-  );
-};
-
-// ─────────────────────────────────────────────
-// CITY TERRAIN
-// ─────────────────────────────────────────────
-const CityTerrain = ({ onPointerUp }) => (
-  <group onPointerUp={onPointerUp}>
-    {/* Base concrete/grass */}
-    <mesh position={[0, -0.5, 0]} receiveShadow>
-      <boxGeometry args={[120, 1, 120]} />
-      <meshStandardMaterial color={PALETTE.grassLight} roughness={0.9} flatShading />
-    </mesh>
-    {/* Foundation edge */}
-    <mesh position={[0, -1.5, 0]} receiveShadow>
-      <boxGeometry args={[122, 1, 122]} />
-      <meshStandardMaterial color={PALETTE.hexBase} roughness={0.9} flatShading />
-    </mesh>
-    {/* Floating base */}
-    <mesh position={[0, -6.5, 0]} receiveShadow>
-      <cylinderGeometry args={[86, 15, 10, 4]} />
-      <meshStandardMaterial color={PALETTE.hexEdge} roughness={0.9} flatShading />
-    </mesh>
-  </group>
-);
-
-// ─────────────────────────────────────────────
-// CITY ROADS & SIDEWALKS
-// ─────────────────────────────────────────────
-const CityRoads = () => {
-  const roadCoords = [-40, -24, -8, 8, 24, 40];
-  const length = 120;
-  return (
-    <group position={[0, 0.01, 0]}>
-      {/* City Center Plaza */}
-      <mesh position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[16, 16]} />
-        <meshStandardMaterial color={PALETTE.stone} roughness={0.9} />
-      </mesh>
-
-      {roadCoords.map((coord, i) => (
-        <group key={`h-${i}`}>
-          {/* Sidewalk */}
-          <mesh position={[0, 0, coord]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-            <planeGeometry args={[length, 5.6]} />
-            <meshStandardMaterial color={PALETTE.stone} roughness={0.9} />
-          </mesh>
-          {/* Horizontal road */}
-          <mesh position={[0, 0.01, coord]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-            <planeGeometry args={[length, 4]} />
-            <meshStandardMaterial color={PALETTE.roadDark} roughness={0.9} />
-          </mesh>
-          {/* Dashed line */}
-          <mesh position={[0, 0.02, coord]} rotation={[-Math.PI / 2, 0, 0]}>
-            <planeGeometry args={[length, 0.15]} />
-            <meshStandardMaterial color="#ffffff" transparent opacity={0.6} />
-          </mesh>
-        </group>
-      ))}
-      
-      {roadCoords.map((coord, i) => (
-        <group key={`v-${i}`}>
-          {/* Sidewalk */}
-          <mesh position={[coord, 0, 0]} rotation={[-Math.PI / 2, 0, Math.PI / 2]} receiveShadow>
-            <planeGeometry args={[length, 5.6]} />
-            <meshStandardMaterial color={PALETTE.stone} roughness={0.9} />
-          </mesh>
-          {/* Vertical road */}
-          <mesh position={[coord, 0.01, 0]} rotation={[-Math.PI / 2, 0, Math.PI / 2]} receiveShadow>
-            <planeGeometry args={[length, 4]} />
-            <meshStandardMaterial color={PALETTE.roadDark} roughness={0.9} />
-          </mesh>
-          {/* Dashed line */}
-          <mesh position={[coord, 0.02, 0]} rotation={[-Math.PI / 2, 0, Math.PI / 2]}>
-            <planeGeometry args={[length, 0.15]} />
-            <meshStandardMaterial color="#ffffff" transparent opacity={0.6} />
-          </mesh>
-        </group>
-      ))}
-
-      {/* Intersection fixes (slightly raised flat gray planes to cover overlapping dashed lines) */}
-      {roadCoords.map(x => 
-        roadCoords.map(z => (
-          <mesh key={`int-${x}-${z}`} position={[x, 0.025, z]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-            <planeGeometry args={[4.2, 4.2]} />
-            <meshStandardMaterial color={PALETTE.roadDark} roughness={0.9} />
-          </mesh>
-        ))
-      )}
     </group>
   );
 };
@@ -198,6 +146,89 @@ const LampPost = ({ position, isNightMode }) => (
 );
 
 // ─────────────────────────────────────────────
+// CITY CELL (Chunk Component)
+// ─────────────────────────────────────────────
+const CityCell = React.memo(({ cx, cz, repo, isTownHall, onBuildingClick, onHover, onUnhover, isNightMode, isSelected, username }) => {
+  const px = cx * 16;
+  const pz = cz * 16;
+
+  // deterministic pseudo-random for static assets
+  const seed = Math.abs(Math.sin(cx * 9301 + cz * 49297) * 233280) % 1;
+  const hasTree1 = seed > 0.3;
+  const hasTree2 = seed > 0.7;
+  const hasLamp = Math.abs(cx) % 2 === 0 && Math.abs(cz) % 2 === 0;
+
+  return (
+    <group position={[px, 0, pz]}>
+      {/* Terrain Base for this cell */}
+      <mesh position={[0, -0.5, 0]} receiveShadow>
+        <boxGeometry args={[16, 1, 16]} />
+        <meshStandardMaterial color={PALETTE.grassLight} roughness={0.9} flatShading />
+      </mesh>
+
+      {/* Horizontal road segment (at positive Z boundary) */}
+      <group position={[0, 0, 8]}>
+        <mesh position={[0, 0.005, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+          <planeGeometry args={[16, 5.6]} />
+          <meshStandardMaterial color={PALETTE.stone} roughness={0.9} />
+        </mesh>
+        <mesh position={[0, 0.015, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+          <planeGeometry args={[16, 4]} />
+          <meshStandardMaterial color={PALETTE.roadDark} roughness={0.9} />
+        </mesh>
+        <mesh position={[0, 0.025, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[16, 0.15]} />
+          <meshStandardMaterial color="#ffffff" transparent opacity={0.6} />
+        </mesh>
+      </group>
+
+      {/* Vertical road segment (at positive X boundary) */}
+      <group position={[8, 0, 0]}>
+        <mesh position={[0, 0.005, 0]} rotation={[-Math.PI / 2, 0, Math.PI / 2]} receiveShadow>
+          <planeGeometry args={[16, 5.6]} />
+          <meshStandardMaterial color={PALETTE.stone} roughness={0.9} />
+        </mesh>
+        <mesh position={[0, 0.015, 0]} rotation={[-Math.PI / 2, 0, Math.PI / 2]} receiveShadow>
+          <planeGeometry args={[16, 4]} />
+          <meshStandardMaterial color={PALETTE.roadDark} roughness={0.9} />
+        </mesh>
+        <mesh position={[0, 0.025, 0]} rotation={[-Math.PI / 2, 0, Math.PI / 2]}>
+          <planeGeometry args={[16, 0.15]} />
+          <meshStandardMaterial color="#ffffff" transparent opacity={0.6} />
+        </mesh>
+      </group>
+
+      {/* Intersection fix */}
+      <mesh position={[8, 0.03, 8]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[4.2, 4.2]} />
+        <meshStandardMaterial color={PALETTE.roadDark} roughness={0.9} />
+      </mesh>
+
+      {/* Buildings */}
+      {isTownHall ? (
+        <GitVilleTownHall position={[0, 0, 0]} username={username} />
+      ) : repo ? (
+        <Building
+          repo={repo}
+          index={Math.abs(cx) + Math.abs(cz)}
+          position={[0, 0.1, 0]}
+          rotation={[0, Math.abs(cx) > Math.abs(cz) ? Math.PI / 2 : 0, 0]}
+          isSelected={isSelected}
+          onClick={() => onBuildingClick(repo, [px, 0.1, pz])}
+          onHover={() => onHover(repo)}
+          onUnhover={() => onUnhover()}
+        />
+      ) : null}
+
+      {/* Props */}
+      {hasTree1 && <Tree position={[4.5, 0.1, 6]} scale={0.25 + seed * 0.2} />}
+      {hasTree2 && <Tree position={[-4.5, 0.1, -6]} scale={0.25 + seed * 0.2} />}
+      {hasLamp && <LampPost position={[6, 0.1, -6]} isNightMode={isNightMode} />}
+    </group>
+  );
+});
+
+// ─────────────────────────────────────────────
 // MAIN EXPERIENCE
 // ─────────────────────────────────────────────
 export const Experience = ({ repos, user, isCinematic, setHoveredRepo, isNightMode }) => {
@@ -205,6 +236,7 @@ export const Experience = ({ repos, user, isCinematic, setHoveredRepo, isNightMo
   const { camera } = useThree();
   const [selectedRepo, setSelectedRepo] = useState(null);
   const keys = useRef({ w: false, a: false, s: false, d: false });
+  const [cameraChunk, setCameraChunk] = useState({ x: 0, z: 0 });
 
   // WASD controls
   useEffect(() => {
@@ -246,6 +278,12 @@ export const Experience = ({ repos, user, isCinematic, setHoveredRepo, isNightMo
       
       controlsRef.current.target.add(moveVec);
       camera.position.add(moveVec);
+    }
+
+    const cx = Math.round(camera.position.x / 16);
+    const cz = Math.round(camera.position.z / 16);
+    if (cx !== cameraChunk.x || cz !== cameraChunk.z) {
+      setCameraChunk({ x: cx, z: cz });
     }
   });
 
@@ -306,111 +344,58 @@ export const Experience = ({ repos, user, isCinematic, setHoveredRepo, isNightMo
     return () => window.removeEventListener('reset-camera', onReset);
   }, [camera]);
 
-  // ── House placements in a grid format ──
-  const buildingPlacements = useMemo(() => {
-    const placements = [];
-    let repoIndex = 0;
-    
-    // 7x7 grid logic
-    for (let x = -3; x <= 3; x++) {
-      for (let z = -3; z <= 3; z++) {
-        // Skip center where Town Hall is
-        if (x === 0 && z === 0) continue; 
-        
-        if (repoIndex < repos.length && repoIndex < 48) {
-          const repo = repos[repoIndex];
-          const px = x * 16;
-          const pz = z * 16;
-          
-          // Face the closest road
-          const rotY = Math.abs(x) > Math.abs(z) ? Math.PI / 2 : 0;
-          
-          placements.push({
-            ...repo,
-            position: [px, 0.1, pz],
-            rotation: [0, rotY, 0],
-            index: repoIndex,
-          });
-          repoIndex++;
+  // Generate infinite cells based on camera position
+  const RENDER_RADIUS = 6;
+  const cells = useMemo(() => {
+    const arr = [];
+    for (let x = cameraChunk.x - RENDER_RADIUS; x <= cameraChunk.x + RENDER_RADIUS; x++) {
+      for (let z = cameraChunk.z - RENDER_RADIUS; z <= cameraChunk.z + RENDER_RADIUS; z++) {
+        const isTownHall = x === 0 && z === 0;
+        let repo = null;
+        if (!isTownHall && repos && repos.length > 0) {
+          const sIndex = getSpiralIndex(x, z) - 1; // -1 because index 0 is Town Hall
+          repo = repos[sIndex % repos.length];
         }
+        arr.push({ cx: x, cz: z, isTownHall, repo });
       }
     }
-    return placements;
-  }, [repos]);
+    return arr;
+  }, [cameraChunk.x, cameraChunk.z, repos]);
 
-  // ── Static assets (trees, lamps, vehicles, clouds) ──
-  const staticAssets = useMemo(() => {
+  const backgroundProps = useMemo(() => {
     const seed = (n) => Math.abs(Math.sin(n * 9301 + 49297) * 233280) % 1;
-
-    const trees = [];
-    const lamps = [];
-    const roadCoords = [-40, -24, -8, 8, 24, 40];
-    
-    // Plant trees neatly along the sidewalks
-    roadCoords.forEach((coord) => {
-      for (let i = -50; i <= 50; i += 8) {
-        // Only plant if not directly at an intersection
-        if (!roadCoords.includes(i)) {
-          trees.push({ position: [i, 0.1, coord + 3.2], scale: 0.35 + seed(i + coord) * 0.25 });
-          trees.push({ position: [i, 0.1, coord - 3.2], scale: 0.35 + seed(i - coord) * 0.25 });
-          
-          trees.push({ position: [coord + 3.2, 0.1, i], scale: 0.35 + seed(i * coord) * 0.25 });
-          trees.push({ position: [coord - 3.2, 0.1, i], scale: 0.35 + seed(i + coord + 10) * 0.25 });
-        }
-      }
-    });
-
-    // Place Lamp Posts along roads
-    roadCoords.forEach((coord) => {
-      for (let i = -40; i <= 40; i += 16) {
-        if (!roadCoords.includes(i)) {
-          lamps.push([i, 0.1, coord + 2.5]);
-          lamps.push([coord + 2.5, 0.1, i]);
-        }
-      }
-    });
-
-    const vehicles = [];
-    roadCoords.forEach((coord, index) => {
-      // Horizontal
-      vehicles.push({ isVertical: false, offset: coord + 1, dir: index % 2 === 0 ? 1 : -1 });
-      vehicles.push({ isVertical: false, offset: coord - 1, dir: index % 2 === 0 ? -1 : 1 });
-      // Vertical
-      vehicles.push({ isVertical: true, offset: coord + 1, dir: index % 2 === 0 ? 1 : -1 });
-      vehicles.push({ isVertical: true, offset: coord - 1, dir: index % 2 === 0 ? -1 : 1 });
-    });
-
     const clouds = [];
-    const cloudSeeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-    cloudSeeds.forEach((n) => {
-      const angle = seed(n + 50) * Math.PI * 2;
-      const radius = 25 + seed(n + 60) * 45;
+    for (let i = 0; i < 15; i++) {
       clouds.push({
-        position: [Math.cos(angle) * radius, 18 + seed(n + 70) * 8, Math.sin(angle) * radius],
-        scale: 0.9 + seed(n + 80) * 1.2,
-        speed: 0.5 + seed(n + 85) * 1.5,
+        startPos: [(Math.random() - 0.5) * 200, 18 + seed(i) * 15, (Math.random() - 0.5) * 200],
+        scale: 0.9 + seed(i + 10) * 1.2,
+        speed: 0.5 + seed(i + 20) * 1.5,
       });
-    });
+    }
 
     const balloons = [];
     const balloonColors = ['#ff4444', '#ffcc00', '#44aaff', '#ff77bb'];
-    for (let i = 0; i < 4; i++) {
-      const angle = seed(i + 900) * Math.PI * 2;
-      const radius = 15 + seed(i + 1000) * 35;
+    for (let i = 0; i < 5; i++) {
       balloons.push({
-        position: [Math.cos(angle) * radius, 12 + seed(i + 1100) * 12, Math.sin(angle) * radius],
-        scale: 0.7 + seed(i + 1200) * 0.6,
+        startPos: [(Math.random() - 0.5) * 150, 12 + seed(i + 100) * 12, (Math.random() - 0.5) * 150],
+        scale: 0.7 + seed(i + 200) * 0.6,
         color: balloonColors[i % balloonColors.length],
-        speed: 0.5 + seed(i + 1300) * 1.5,
+        speed: 0.5 + seed(i + 300) * 1.5,
       });
     }
-
-    return { trees, lamps, vehicles, clouds, balloons };
+    
+    const vehicles = [];
+    for (let i = 0; i < 12; i++) {
+        vehicles.push({
+            isVertical: Math.random() > 0.5,
+            dir: Math.random() > 0.5 ? 1 : -1
+        });
+    }
+    return { clouds, balloons, vehicles };
   }, []);
 
   return (
     <>
-      {/* ── CAMERA CONTROLS ── */}
       <OrbitControls
         ref={controlsRef}
         makeDefault
@@ -422,7 +407,6 @@ export const Experience = ({ repos, user, isCinematic, setHoveredRepo, isNightMo
         dampingFactor={0.05}
       />
 
-      {/* ── LIGHTING ── */}
       <SoftShadows size={22} samples={12} focus={0} />
       <ambientLight intensity={isNightMode ? 0.2 : 1.4} color={isNightMode ? "#8aa2d6" : "#ffd4a3"} />
       <directionalLight
@@ -439,74 +423,59 @@ export const Experience = ({ repos, user, isCinematic, setHoveredRepo, isNightMo
         shadow-camera-bottom={-80}
         shadow-bias={-0.0005}
       />
-      {/* Fill light from opposite side for soft shadows */}
       <directionalLight position={[-20, 30, -20]} intensity={isNightMode ? 0.2 : 0.4} color={isNightMode ? "#314366" : "#87CEEB"} />
-      {/* Warm ground bounce */}
       <hemisphereLight skyColor={isNightMode ? "#0B1021" : "#87CEEB"} groundColor={isNightMode ? "#08101a" : "#74cf4a"} intensity={isNightMode ? 0.4 : 0.6} />
 
-      <group>
-        {/* ── CITY TERRAIN ── */}
-        <CityTerrain onPointerUp={(e) => { 
+      <group onPointerUp={(e) => { 
           if (e.button !== 0) return;
           e.stopPropagation(); 
           setSelectedRepo(null); 
-        }} />
+        }}>
+        
+        {/* Infinite Grass Base (covers horizon) */}
+        <mesh position={[cameraChunk.x * 16, -0.6, cameraChunk.z * 16]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+          <planeGeometry args={[2000, 2000]} />
+          <meshStandardMaterial color={PALETTE.grassLight} roughness={1} flatShading />
+        </mesh>
 
-        {/* ── CITY ROADS ── */}
-        <CityRoads />
-
-        {/* ── TOWN HALL (center) ── */}
-        <GitVilleTownHall position={[0, 0, 0]} username={user?.username} />
-
-        {/* ── REPOSITORY HOUSES ── */}
-        {buildingPlacements.map((repo, i) => (
-          <Building
-            key={repo.name}
+        {cells.map(({ cx, cz, isTownHall, repo }) => (
+          <CityCell
+            key={`${cx}-${cz}`}
+            cx={cx}
+            cz={cz}
+            isTownHall={isTownHall}
             repo={repo}
-            index={i}
-            position={repo.position}
-            rotation={repo.rotation}
-            isSelected={selectedRepo?.name === repo.name}
-            onClick={handleBuildingClick}
-            onHover={() => setHoveredRepo(repo)}
+            username={user?.username}
+            onBuildingClick={handleBuildingClick}
+            onHover={setHoveredRepo}
             onUnhover={() => setHoveredRepo(null)}
+            isNightMode={isNightMode}
+            isSelected={selectedRepo?.name === repo?.name}
           />
         ))}
 
-        {/* ── TREES ── */}
-        {staticAssets.trees.map((t, i) => (
-          <Tree key={`tree-${i}`} position={t.position} scale={t.scale} />
+        {backgroundProps.clouds.map((c, i) => (
+          <Cloud key={`cloud-${i}`} startPos={c.startPos} scale={c.scale} speed={c.speed} />
         ))}
 
-        {/* ── LAMP POSTS ── */}
-        {staticAssets.lamps.map((pos, i) => (
-          <LampPost key={`lamp-${i}`} position={pos} isNightMode={isNightMode} />
+        {backgroundProps.balloons.map((b, i) => (
+          <HotAirBalloon key={`balloon-${i}`} startPos={b.startPos} color={b.color} scale={b.scale} speed={b.speed} />
         ))}
-
-        {/* ── VEHICLES ── */}
-        {staticAssets.vehicles.map((v, i) => (
-          <Vehicle key={`veh-${i}`} isVertical={v.isVertical} offset={v.offset} dir={v.dir} />
-        ))}
-
-        {/* ── CLOUDS ── */}
-        {staticAssets.clouds.map((c, i) => (
-          <Cloud key={`cloud-${i}`} position={c.position} scale={c.scale} speed={c.speed} />
-        ))}
-
-        {/* ── BALLOONS ── */}
-        {staticAssets.balloons.map((b, i) => (
-          <HotAirBalloon key={`balloon-${i}`} position={b.position} color={b.color} scale={b.scale} speed={b.speed} />
+        
+        {backgroundProps.vehicles.map((v, i) => (
+          <Vehicle key={`veh-${i}`} isVertical={v.isVertical} dir={v.dir} />
         ))}
       </group>
-
-      {/* ── CONTACT SHADOWS ── */}
+      
+      {/* Dynamic contact shadows to ground */}
       <ContactShadows
-        position={[0, 0.25, 0]}
+        position={[cameraChunk.x * 16, 0.25, cameraChunk.z * 16]}
         opacity={0.28}
         scale={180}
         blur={2.5}
         far={20}
         resolution={1024}
+        frames={1}
       />
     </>
   );

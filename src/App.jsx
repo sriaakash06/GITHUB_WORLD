@@ -105,6 +105,7 @@ function App() {
         id="world-canvas"
       >
         <color attach="background" args={[skyColor]} />
+        <fog attach="fog" args={[skyColor, 60, 140]} />
 
         <Experience
           repos={filteredRepos}
