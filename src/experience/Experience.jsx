@@ -10,20 +10,31 @@ import GitVilleTownHall from './GitVilleTownHall';
 import { PALETTE } from './Constants';
 import { Vehicle } from './Vehicle';
 
-const getSpiralIndex = (x, y) => {
-  if (x === 0 && y === 0) return 0;
-  const max = Math.max(Math.abs(x), Math.abs(y));
-  let index = Math.pow(2 * max - 1, 2);
-  if (x === max) {
-    index += max - y;
-  } else if (y === -max) {
-    index += 2 * max + (max - x);
-  } else if (x === -max) {
-    index += 4 * max + (y + max);
-  } else if (y === max) {
-    index += 6 * max + (x + max);
+const getSpiralCoords = (index) => {
+  if (index === 0) return { x: 0, z: 0 };
+  let x = 0;
+  let z = 0;
+  let dx = 1;
+  let dz = 0;
+  let segmentLength = 1;
+  let segmentPassed = 0;
+  let turns = 0;
+  for (let i = 0; i < index; i++) {
+    x += dx;
+    z += dz;
+    segmentPassed++;
+    if (segmentPassed === segmentLength) {
+      segmentPassed = 0;
+      const temp = dx;
+      dx = -dz;
+      dz = temp;
+      turns++;
+      if (turns % 2 === 0) {
+        segmentLength++;
+      }
+    }
   }
-  return index;
+  return { x, z };
 };
 
 // ─────────────────────────────────────────────
@@ -236,7 +247,6 @@ export const Experience = ({ repos, user, isCinematic, setHoveredRepo, isNightMo
   const { camera } = useThree();
   const [selectedRepo, setSelectedRepo] = useState(null);
   const keys = useRef({ w: false, a: false, s: false, d: false });
-  const [cameraChunk, setCameraChunk] = useState({ x: 0, z: 0 });
 
   // WASD controls
   useEffect(() => {
@@ -278,12 +288,6 @@ export const Experience = ({ repos, user, isCinematic, setHoveredRepo, isNightMo
       
       controlsRef.current.target.add(moveVec);
       camera.position.add(moveVec);
-    }
-
-    const cx = Math.round(camera.position.x / 16);
-    const cz = Math.round(camera.position.z / 16);
-    if (cx !== cameraChunk.x || cz !== cameraChunk.z) {
-      setCameraChunk({ x: cx, z: cz });
     }
   });
 
@@ -344,23 +348,19 @@ export const Experience = ({ repos, user, isCinematic, setHoveredRepo, isNightMo
     return () => window.removeEventListener('reset-camera', onReset);
   }, [camera]);
 
-  // Generate infinite cells based on camera position
-  const RENDER_RADIUS = 6;
+  // Generate exact cells for Town Hall and Repositories
   const cells = useMemo(() => {
     const arr = [];
-    for (let x = cameraChunk.x - RENDER_RADIUS; x <= cameraChunk.x + RENDER_RADIUS; x++) {
-      for (let z = cameraChunk.z - RENDER_RADIUS; z <= cameraChunk.z + RENDER_RADIUS; z++) {
-        const isTownHall = x === 0 && z === 0;
-        let repo = null;
-        if (!isTownHall && repos && repos.length > 0) {
-          const sIndex = getSpiralIndex(x, z) - 1; // -1 because index 0 is Town Hall
-          repo = repos[sIndex % repos.length];
-        }
-        arr.push({ cx: x, cz: z, isTownHall, repo });
-      }
+    arr.push({ cx: 0, cz: 0, isTownHall: true, repo: null });
+    
+    if (repos && repos.length > 0) {
+      repos.forEach((repo, i) => {
+        const { x, z } = getSpiralCoords(i + 1);
+        arr.push({ cx: x, cz: z, isTownHall: false, repo });
+      });
     }
     return arr;
-  }, [cameraChunk.x, cameraChunk.z, repos]);
+  }, [repos]);
 
   const backgroundProps = useMemo(() => {
     const seed = (n) => Math.abs(Math.sin(n * 9301 + 49297) * 233280) % 1;
@@ -432,8 +432,8 @@ export const Experience = ({ repos, user, isCinematic, setHoveredRepo, isNightMo
           setSelectedRepo(null); 
         }}>
         
-        {/* Infinite Grass Base (covers horizon) */}
-        <mesh position={[cameraChunk.x * 16, -0.6, cameraChunk.z * 16]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        {/* Grass Base (covers horizon) */}
+        <mesh position={[0, -0.6, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
           <planeGeometry args={[2000, 2000]} />
           <meshStandardMaterial color={PALETTE.grassLight} roughness={1} flatShading />
         </mesh>
@@ -469,9 +469,9 @@ export const Experience = ({ repos, user, isCinematic, setHoveredRepo, isNightMo
       
       {/* Dynamic contact shadows to ground */}
       <ContactShadows
-        position={[cameraChunk.x * 16, 0.25, cameraChunk.z * 16]}
+        position={[0, 0.25, 0]}
         opacity={0.28}
-        scale={180}
+        scale={200}
         blur={2.5}
         far={20}
         resolution={1024}
