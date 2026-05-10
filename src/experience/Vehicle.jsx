@@ -16,42 +16,73 @@ export function Vehicle({ isVertical, dir = 1 }) {
   
   const initialPos = useMemo(() => (Math.random() - 0.5) * 120, []);
 
+  const progressRef = useRef(initialPos);
+  const laneRef = useRef(initialOffset);
+  const prevPosRef = useRef(null);
+
   useFrame(() => {
     if (meshRef.current && camera) {
         const moveDir = isVertical ? 'z' : 'x';
         const otherDir = isVertical ? 'x' : 'z';
 
-        meshRef.current.position[moveDir] += speed;
+        progressRef.current += speed;
         
         const limit = 100;
-        if (meshRef.current.position[moveDir] > camera.position[moveDir] + limit) {
-          meshRef.current.position[moveDir] = camera.position[moveDir] - limit;
+        if (progressRef.current > camera.position[moveDir] + limit) {
+          progressRef.current = camera.position[moveDir] - limit;
           const chunk = Math.round(camera.position[otherDir] / 16);
           const randomLane = chunk + Math.floor((Math.random() - 0.5) * 10);
-          meshRef.current.position[otherDir] = randomLane * 16 + 8 + (dir > 0 ? 1 : -1);
+          laneRef.current = randomLane * 16 + 8 + (dir > 0 ? 1 : -1);
         }
-        if (meshRef.current.position[moveDir] < camera.position[moveDir] - limit) {
-          meshRef.current.position[moveDir] = camera.position[moveDir] + limit;
+        if (progressRef.current < camera.position[moveDir] - limit) {
+          progressRef.current = camera.position[moveDir] + limit;
           const chunk = Math.round(camera.position[otherDir] / 16);
           const randomLane = chunk + Math.floor((Math.random() - 0.5) * 10);
-          meshRef.current.position[otherDir] = randomLane * 16 + 8 + (dir > 0 ? 1 : -1);
+          laneRef.current = randomLane * 16 + 8 + (dir > 0 ? 1 : -1);
         }
         
+        let logicalX = isVertical ? laneRef.current : progressRef.current;
+        let logicalZ = isVertical ? progressRef.current : laneRef.current;
+        
+        let visX = logicalX;
+        let visZ = logicalZ;
+
+        // Roundabout logic: smoothly curve around the center
+        const r = Math.sqrt(logicalX * logicalX + logicalZ * logicalZ);
+        if (r < 18 && r > 0.1) {
+            // at r = 18, targetR = 18
+            // at r = 8 (closest straight pass), targetR = 15.5 (roundabout radius)
+            const t = (18 - r) / (18 - 8);
+            const targetR = 18 - t * (18 - 15.5);
+            const scale = targetR / r;
+            visX = logicalX * scale;
+            visZ = logicalZ * scale;
+        }
+
         // Add a slight bounce
-        meshRef.current.position.y = 0.15 + Math.sin(Date.now() * 0.01) * 0.02;
+        const visY = 0.15 + Math.sin(Date.now() * 0.01) * 0.02;
+
+        let rotY = isVertical ? (dir > 0 ? 0 : Math.PI) : (dir > 0 ? -Math.PI / 2 : Math.PI / 2);
+        
+        if (prevPosRef.current) {
+            const dx = visX - prevPosRef.current.x;
+            const dz = visZ - prevPosRef.current.z;
+            if (Math.abs(dx) > 0.0001 || Math.abs(dz) > 0.0001) {
+                rotY = Math.atan2(dz, dx) - Math.PI / 2;
+            } else {
+                rotY = prevPosRef.current.rotY; // keep previous rotation if stopped
+            }
+        }
+        
+        meshRef.current.position.set(visX, visY, visZ);
+        meshRef.current.rotation.y = rotY;
+        
+        prevPosRef.current = { x: visX, z: visZ, rotY };
     }
   });
 
   return (
-    <group 
-        ref={meshRef} 
-        rotation-y={isVertical ? (dir > 0 ? 0 : Math.PI) : (dir > 0 ? -Math.PI / 2 : Math.PI / 2)}
-        position={[
-            isVertical ? initialOffset : initialPos,
-            0.15,
-            isVertical ? initialPos : initialOffset
-        ]}
-    >
+    <group ref={meshRef}>
       <mesh castShadow>
         <boxGeometry args={[0.7, 0.4, 0.5]} />
         <meshStandardMaterial color={color} roughness={0.5} metalness={0.2} />

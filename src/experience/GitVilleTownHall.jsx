@@ -106,6 +106,27 @@ export default function GitVilleTownHall({ position = [0, 0, 0], username }) {
       {/* RAISED PLATFORM */}
       <CenterPlatform />
 
+      {/* ROUNDABOUT ROAD */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.016, 0]} receiveShadow>
+        <ringGeometry args={[13.5, 17.5, 48]} />
+        <meshStandardMaterial color={PALETTE.roadDark} roughness={0.9} />
+      </mesh>
+      {/* Roundabout inner line */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.026, 0]}>
+        <ringGeometry args={[13.8, 14.0, 48]} />
+        <meshStandardMaterial color="#ffffff" transparent opacity={0.6} />
+      </mesh>
+      {/* Roundabout outer line */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.026, 0]}>
+        <ringGeometry args={[17.0, 17.2, 48]} />
+        <meshStandardMaterial color="#ffffff" transparent opacity={0.6} />
+      </mesh>
+      {/* Roundabout dashed center line */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.026, 0]}>
+        <ringGeometry args={[15.4, 15.6, 48, 1, 0, Math.PI * 2]} />
+        <meshStandardMaterial color="#ffffff" transparent opacity={0.6} />
+      </mesh>
+
       {/* FOUNDATION SLAB */}
       <mesh position={[0, 0.85, 0]} castShadow receiveShadow>
         <boxGeometry args={[7, 0.6, 7]} />
