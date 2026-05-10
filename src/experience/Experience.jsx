@@ -209,11 +209,21 @@ const CityCell = React.memo(({ cx, cz, repo, isTownHall, onBuildingClick, onHove
         </mesh>
       </group>
 
-      {/* Intersection fix */}
-      <mesh position={[8, 0.03, 8]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[4.2, 4.2]} />
-        <meshStandardMaterial color={PALETTE.roadDark} roughness={0.9} />
-      </mesh>
+      {/* Intersection Mini-Roundabout */}
+      <group position={[8, 0.03, 8]}>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+          <planeGeometry args={[4.2, 4.2]} />
+          <meshStandardMaterial color={PALETTE.roadDark} roughness={0.9} />
+        </mesh>
+        <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+          <circleGeometry args={[0.65, 24]} />
+          <meshStandardMaterial color={PALETTE.grassLight} roughness={0.9} />
+        </mesh>
+        <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.75, 0.85, 24]} />
+          <meshStandardMaterial color="#ffffff" transparent opacity={0.6} />
+        </mesh>
+      </group>
 
       {/* Buildings */}
       {isTownHall ? (

@@ -44,40 +44,13 @@ export function Vehicle({ isVertical, dir = 1 }) {
         let logicalX = isVertical ? laneRef.current : progressRef.current;
         let logicalZ = isVertical ? progressRef.current : laneRef.current;
         
-        let visX = logicalX;
-        let visZ = logicalZ;
-
-        // Roundabout logic: smoothly curve around the center
-        const r = Math.sqrt(logicalX * logicalX + logicalZ * logicalZ);
-        if (r < 18 && r > 0.1) {
-            // at r = 18, targetR = 18
-            // at r = 8 (closest straight pass), targetR = 15.5 (roundabout radius)
-            const t = (18 - r) / (18 - 8);
-            const targetR = 18 - t * (18 - 15.5);
-            const scale = targetR / r;
-            visX = logicalX * scale;
-            visZ = logicalZ * scale;
-        }
-
         // Add a slight bounce
-        const visY = 0.15 + Math.sin(Date.now() * 0.01) * 0.02;
+        meshRef.current.position.y = 0.15 + Math.sin(Date.now() * 0.01) * 0.02;
 
         let rotY = isVertical ? (dir > 0 ? 0 : Math.PI) : (dir > 0 ? -Math.PI / 2 : Math.PI / 2);
         
-        if (prevPosRef.current) {
-            const dx = visX - prevPosRef.current.x;
-            const dz = visZ - prevPosRef.current.z;
-            if (Math.abs(dx) > 0.0001 || Math.abs(dz) > 0.0001) {
-                rotY = Math.atan2(dz, dx) - Math.PI / 2;
-            } else {
-                rotY = prevPosRef.current.rotY; // keep previous rotation if stopped
-            }
-        }
-        
-        meshRef.current.position.set(visX, visY, visZ);
+        meshRef.current.position.set(logicalX, meshRef.current.position.y, logicalZ);
         meshRef.current.rotation.y = rotY;
-        
-        prevPosRef.current = { x: visX, z: visZ, rotY };
     }
   });
 

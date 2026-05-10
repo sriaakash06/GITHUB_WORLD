@@ -75,7 +75,7 @@ export default function GitVilleTownHall({ position = [0, 0, 0], username }) {
 
   useFrame((_, delta) => {
     if (!groupRef.current) return;
-    const target = hovered ? 1.05 : 1; // Slight scale up on hover
+    const target = hovered ? 0.46 : 0.44; // Slight scale up on hover
     const cur = groupRef.current.scale.x;
     const next = cur + (target - cur) * Math.min(delta * 10, 1);
     groupRef.current.scale.set(next, next, next);
@@ -85,6 +85,7 @@ export default function GitVilleTownHall({ position = [0, 0, 0], username }) {
     <group 
       ref={groupRef}
       position={position}
+      scale={[0.44, 0.44, 0.44]}
       onPointerOver={(e) => {
         e.stopPropagation();
         setHovered(true);
@@ -105,27 +106,6 @@ export default function GitVilleTownHall({ position = [0, 0, 0], username }) {
     >
       {/* RAISED PLATFORM */}
       <CenterPlatform />
-
-      {/* ROUNDABOUT ROAD */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.016, 0]} receiveShadow>
-        <ringGeometry args={[13.5, 17.5, 48]} />
-        <meshStandardMaterial color={PALETTE.roadDark} roughness={0.9} />
-      </mesh>
-      {/* Roundabout inner line */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.026, 0]}>
-        <ringGeometry args={[13.8, 14.0, 48]} />
-        <meshStandardMaterial color="#ffffff" transparent opacity={0.6} />
-      </mesh>
-      {/* Roundabout outer line */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.026, 0]}>
-        <ringGeometry args={[17.0, 17.2, 48]} />
-        <meshStandardMaterial color="#ffffff" transparent opacity={0.6} />
-      </mesh>
-      {/* Roundabout dashed center line */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.026, 0]}>
-        <ringGeometry args={[15.4, 15.6, 48, 1, 0, Math.PI * 2]} />
-        <meshStandardMaterial color="#ffffff" transparent opacity={0.6} />
-      </mesh>
 
       {/* FOUNDATION SLAB */}
       <mesh position={[0, 0.85, 0]} castShadow receiveShadow>
