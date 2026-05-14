@@ -10,8 +10,10 @@ import GitVilleTownHall from './GitVilleTownHall';
 import { PALETTE } from './Constants';
 import { Vehicle } from './Vehicle';
 
-const getSpiralCoords = (index) => {
-  if (index === 0) return { x: 0, z: 0 };
+const getCityLayout = (repos) => {
+  const layout = [];
+  const repoSlots = [];
+  
   let x = 0;
   let z = 0;
   let dx = 1;
@@ -19,7 +21,23 @@ const getSpiralCoords = (index) => {
   let segmentLength = 1;
   let segmentPassed = 0;
   let turns = 0;
-  for (let i = 0; i < index; i++) {
+  
+  layout.push({ type: 'townhall', cx: 0, cz: 0 });
+  
+  const addSlot = (cx, cz) => {
+    if (cx === 0 && cz === 0) return;
+    const isRoadX = Math.abs(cx) % 3 === 2;
+    const isRoadZ = Math.abs(cz) % 3 === 2;
+    
+    if (!isRoadX && !isRoadZ) {
+      repoSlots.push({ cx, cz });
+    }
+  };
+
+  while (repoSlots.length < (repos?.length || 0)) {
+    if (x !== 0 || z !== 0) {
+      addSlot(x, z);
+    }
     x += dx;
     z += dz;
     segmentPassed++;
@@ -34,7 +52,35 @@ const getSpiralCoords = (index) => {
       }
     }
   }
-  return { x, z };
+  
+  let minX = 0, maxX = 0, minZ = 0, maxZ = 0;
+  repoSlots.forEach(slot => {
+    minX = Math.min(minX, slot.cx);
+    maxX = Math.max(maxX, slot.cx);
+    minZ = Math.min(minZ, slot.cz);
+    maxZ = Math.max(maxZ, slot.cz);
+  });
+  
+  minX -= 1; maxX += 1;
+  minZ -= 1; maxZ += 1;
+  
+  for (let cx = minX; cx <= maxX; cx++) {
+    for (let cz = minZ; cz <= maxZ; cz++) {
+      const isRoadX = Math.abs(cx) % 3 === 2;
+      const isRoadZ = Math.abs(cz) % 3 === 2;
+      
+      if (isRoadX || isRoadZ) {
+        layout.push({ type: 'road', cx, cz, isIntersection: isRoadX && isRoadZ, isRoadX, isRoadZ });
+      } else {
+        const isRepo = repoSlots.find(r => r.cx === cx && r.cz === cz);
+        if (!isRepo && !(cx === 0 && cz === 0)) {
+           layout.push({ type: 'park', cx, cz });
+        }
+      }
+    }
+  }
+  
+  return { layout, repoSlots };
 };
 
 // ─────────────────────────────────────────────
@@ -156,76 +202,97 @@ const LampPost = ({ position, isNightMode }) => (
   </group>
 );
 
-// ─────────────────────────────────────────────
-// CITY CELL (Chunk Component)
-// ─────────────────────────────────────────────
-const CityCell = React.memo(({ cx, cz, repo, isTownHall, onBuildingClick, onHover, onUnhover, isNightMode, isSelected, username }) => {
+const RoadCell = React.memo(({ cx, cz, isIntersection, isRoadX, isRoadZ, isNightMode }) => {
   const px = cx * 16;
   const pz = cz * 16;
-
-  // deterministic pseudo-random for static assets
-  const seed = Math.abs(Math.sin(cx * 9301 + cz * 49297) * 233280) % 1;
-  const hasTree1 = seed > 0.3;
-  const hasTree2 = seed > 0.7;
-  const hasLamp = Math.abs(cx) % 2 === 0 && Math.abs(cz) % 2 === 0;
-
   return (
     <group position={[px, 0, pz]}>
-      {/* Terrain Base for this cell */}
       <mesh position={[0, -0.5, 0]} receiveShadow>
         <boxGeometry args={[16, 1, 16]} />
         <meshStandardMaterial color={PALETTE.grassLight} roughness={0.9} flatShading />
       </mesh>
+      
+      {isIntersection ? (
+        <group position={[0, 0.01, 0]}>
+          <mesh rotation={[-Math.PI/2, 0, 0]} receiveShadow>
+             <planeGeometry args={[16, 16]} />
+             <meshStandardMaterial color={PALETTE.roadDark} roughness={0.9} />
+          </mesh>
+          <mesh position={[0, 0.01, 0]} rotation={[-Math.PI/2, 0, 0]}>
+             <circleGeometry args={[3, 32]} />
+             <meshStandardMaterial color={PALETTE.grassLight} roughness={0.9} />
+          </mesh>
+          <mesh position={[0, 0.02, 0]} rotation={[-Math.PI/2, 0, 0]}>
+             <ringGeometry args={[3.2, 3.6, 32]} />
+             <meshStandardMaterial color="#ffffff" transparent opacity={0.6} />
+          </mesh>
+          <LampPost position={[6, 0.1, -6]} isNightMode={isNightMode} />
+          <LampPost position={[-6, 0.1, 6]} isNightMode={isNightMode} />
+        </group>
+      ) : isRoadX ? (
+        <group position={[0, 0.01, 0]}>
+          <mesh rotation={[-Math.PI/2, 0, 0]} receiveShadow>
+             <planeGeometry args={[8, 16]} />
+             <meshStandardMaterial color={PALETTE.roadDark} roughness={0.9} />
+          </mesh>
+          <mesh position={[0, 0.01, 0]} rotation={[-Math.PI/2, 0, 0]}>
+             <planeGeometry args={[0.2, 16]} />
+             <meshStandardMaterial color="#ffffff" transparent opacity={0.6} />
+          </mesh>
+        </group>
+      ) : (
+        <group position={[0, 0.01, 0]}>
+          <mesh rotation={[-Math.PI/2, 0, 0]} receiveShadow>
+             <planeGeometry args={[16, 8]} />
+             <meshStandardMaterial color={PALETTE.roadDark} roughness={0.9} />
+          </mesh>
+          <mesh position={[0, 0.01, 0]} rotation={[-Math.PI/2, 0, 0]}>
+             <planeGeometry args={[16, 0.2]} />
+             <meshStandardMaterial color="#ffffff" transparent opacity={0.6} />
+          </mesh>
+        </group>
+      )}
+    </group>
+  );
+});
 
-      {/* Horizontal road segment (at positive Z boundary) */}
-      <group position={[0, 0, 8]}>
-        <mesh position={[0, 0.005, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-          <planeGeometry args={[16, 5.6]} />
-          <meshStandardMaterial color={PALETTE.stone} roughness={0.9} />
-        </mesh>
-        <mesh position={[0, 0.015, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-          <planeGeometry args={[16, 4]} />
-          <meshStandardMaterial color={PALETTE.roadDark} roughness={0.9} />
-        </mesh>
-        <mesh position={[0, 0.025, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[16, 0.15]} />
-          <meshStandardMaterial color="#ffffff" transparent opacity={0.6} />
-        </mesh>
-      </group>
+const ParkCell = React.memo(({ cx, cz, isNightMode }) => {
+  const px = cx * 16;
+  const pz = cz * 16;
+  const seed = Math.abs(Math.sin(cx * 9301 + cz * 49297) * 233280) % 1;
+  return (
+    <group position={[px, 0, pz]}>
+      <mesh position={[0, -0.5, 0]} receiveShadow>
+        <boxGeometry args={[16, 1, 16]} />
+        <meshStandardMaterial color={PALETTE.grassLight} roughness={0.9} flatShading />
+      </mesh>
+      <Tree position={[3, 0, 3]} scale={0.3 + seed * 0.2} />
+      <Tree position={[-3, 0, -2]} scale={0.2 + seed * 0.3} />
+      <Tree position={[2, 0, -4]} scale={0.4} />
+      <Tree position={[-4, 0, 4]} scale={0.25} />
+      <mesh position={[0, 0.01, 0]} rotation={[-Math.PI/2, 0, 0]}>
+        <circleGeometry args={[4, 16]} />
+        <meshStandardMaterial color={PALETTE.stone} roughness={0.9} />
+      </mesh>
+      {seed > 0.5 && <LampPost position={[0, 0.1, 0]} isNightMode={isNightMode} />}
+    </group>
+  );
+});
 
-      {/* Vertical road segment (at positive X boundary) */}
-      <group position={[8, 0, 0]}>
-        <mesh position={[0, 0.005, 0]} rotation={[-Math.PI / 2, 0, Math.PI / 2]} receiveShadow>
-          <planeGeometry args={[16, 5.6]} />
-          <meshStandardMaterial color={PALETTE.stone} roughness={0.9} />
-        </mesh>
-        <mesh position={[0, 0.015, 0]} rotation={[-Math.PI / 2, 0, Math.PI / 2]} receiveShadow>
-          <planeGeometry args={[16, 4]} />
-          <meshStandardMaterial color={PALETTE.roadDark} roughness={0.9} />
-        </mesh>
-        <mesh position={[0, 0.025, 0]} rotation={[-Math.PI / 2, 0, Math.PI / 2]}>
-          <planeGeometry args={[16, 0.15]} />
-          <meshStandardMaterial color="#ffffff" transparent opacity={0.6} />
-        </mesh>
-      </group>
+const BuildingCell = React.memo(({ cx, cz, repo, isTownHall, onBuildingClick, onHover, onUnhover, isNightMode, isSelected, username }) => {
+  const px = cx * 16;
+  const pz = cz * 16;
+  const seed = Math.abs(Math.sin(cx * 9301 + cz * 49297) * 233280) % 1;
+  const hasTree1 = seed > 0.3;
+  const hasTree2 = seed > 0.7;
 
-      {/* Intersection Mini-Roundabout */}
-      <group position={[8, 0.03, 8]}>
-        <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-          <planeGeometry args={[4.2, 4.2]} />
-          <meshStandardMaterial color={PALETTE.roadDark} roughness={0.9} />
-        </mesh>
-        <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-          <circleGeometry args={[0.65, 24]} />
-          <meshStandardMaterial color={PALETTE.grassLight} roughness={0.9} />
-        </mesh>
-        <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.75, 0.85, 24]} />
-          <meshStandardMaterial color="#ffffff" transparent opacity={0.6} />
-        </mesh>
-      </group>
-
-      {/* Buildings */}
+  return (
+    <group position={[px, 0, pz]}>
+      <mesh position={[0, -0.5, 0]} receiveShadow>
+        <boxGeometry args={[16, 1, 16]} />
+        <meshStandardMaterial color={PALETTE.grassLight} roughness={0.9} flatShading />
+      </mesh>
+      
       {isTownHall ? (
         <GitVilleTownHall position={[0, 0, 0]} username={username} />
       ) : repo ? (
@@ -241,10 +308,8 @@ const CityCell = React.memo(({ cx, cz, repo, isTownHall, onBuildingClick, onHove
         />
       ) : null}
 
-      {/* Props */}
-      {hasTree1 && <Tree position={[4.5, 0.1, 6]} scale={0.25 + seed * 0.2} />}
-      {hasTree2 && <Tree position={[-4.5, 0.1, -6]} scale={0.25 + seed * 0.2} />}
-      {hasLamp && <LampPost position={[6, 0.1, -6]} isNightMode={isNightMode} />}
+      {hasTree1 && <Tree position={[5.5, 0.1, 6]} scale={0.25 + seed * 0.2} />}
+      {hasTree2 && <Tree position={[-5.5, 0.1, -6]} scale={0.25 + seed * 0.2} />}
     </group>
   );
 });
@@ -361,15 +426,13 @@ export const Experience = ({ repos, user, isCinematic, setHoveredRepo, isNightMo
   // Generate exact cells for Town Hall and Repositories
   const cells = useMemo(() => {
     const arr = [];
-    arr.push({ cx: 0, cz: 0, isTownHall: true, repo: null });
+    const { layout, repoSlots } = getCityLayout(repos);
     
-    if (repos && repos.length > 0) {
-      repos.forEach((repo, i) => {
-        const { x, z } = getSpiralCoords(i + 1);
-        arr.push({ cx: x, cz: z, isTownHall: false, repo });
-      });
-    }
-    return arr;
+    repoSlots.forEach((slot, i) => {
+      arr.push({ ...slot, type: 'building', repo: repos[i] });
+    });
+    
+    return [...layout, ...arr];
   }, [repos]);
 
   const backgroundProps = useMemo(() => {
@@ -448,21 +511,33 @@ export const Experience = ({ repos, user, isCinematic, setHoveredRepo, isNightMo
           <meshStandardMaterial color={PALETTE.grassLight} roughness={1} flatShading />
         </mesh>
 
-        {cells.map(({ cx, cz, isTownHall, repo }) => (
-          <CityCell
-            key={`${cx}-${cz}`}
-            cx={cx}
-            cz={cz}
-            isTownHall={isTownHall}
-            repo={repo}
-            username={user?.username}
-            onBuildingClick={handleBuildingClick}
-            onHover={setHoveredRepo}
-            onUnhover={() => setHoveredRepo(null)}
-            isNightMode={isNightMode}
-            isSelected={selectedRepo?.name === repo?.name}
-          />
-        ))}
+        {cells.map((cell) => {
+          const key = `${cell.type}-${cell.cx}-${cell.cz}`;
+          if (cell.type === 'road') {
+            return <RoadCell key={key} cx={cell.cx} cz={cell.cz} isIntersection={cell.isIntersection} isRoadX={cell.isRoadX} isRoadZ={cell.isRoadZ} isNightMode={isNightMode} />;
+          }
+          if (cell.type === 'park') {
+            return <ParkCell key={key} cx={cell.cx} cz={cell.cz} isNightMode={isNightMode} />;
+          }
+          if (cell.type === 'building' || cell.type === 'townhall') {
+            return (
+              <BuildingCell
+                key={key}
+                cx={cell.cx}
+                cz={cell.cz}
+                isTownHall={cell.type === 'townhall'}
+                repo={cell.repo}
+                username={user?.username}
+                onBuildingClick={handleBuildingClick}
+                onHover={setHoveredRepo}
+                onUnhover={() => setHoveredRepo(null)}
+                isNightMode={isNightMode}
+                isSelected={selectedRepo?.name === cell.repo?.name}
+              />
+            );
+          }
+          return null;
+        })}
 
         {backgroundProps.clouds.map((c, i) => (
           <Cloud key={`cloud-${i}`} startPos={c.startPos} scale={c.scale} speed={c.speed} />
