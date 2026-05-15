@@ -1,7 +1,7 @@
 # 🌍 GITHUB_WORLD
 
 A React-based web application built with Vite.
-You can view the live deployment here:
+You can view the live deployment here:https://github-world-ashy.vercel.app/
 ## 🚀 Tech Stack
 
 - **React** – UI framework
