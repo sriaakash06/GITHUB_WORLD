@@ -22,6 +22,7 @@
     box-sizing: border-box;
 }
 
+
 body {
     font-family: 'Inter', sans-serif;
     background-color: var(--bg-dark);
@@ -353,7 +354,9 @@ canvas {
     margin-bottom: 1rem;
 }
 
+
 @keyframes rotation {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
