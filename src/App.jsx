@@ -5,6 +5,7 @@ import { LoginScreen } from './components/LoginScreen';
 import { HUD } from './components/HUD';
 import { LoadingScreen } from './components/LoadingScreen';
 
+
 function App() {
   const [user, setUser]               = useState(null);
   const [repos, setRepos]             = useState([]);
@@ -65,6 +66,7 @@ function App() {
       // Remove duplicates based on html_url (if user starred their own repo)
       const uniqueRepos = Array.from(new Map(processedRepos.map(r => [r.html_url, r])).values());
 
+      
       setRepos(uniqueRepos);
       setUser({
         username,
@@ -116,6 +118,7 @@ function App() {
         />
       </Canvas>
 
+      
       {user && (
         <HUD
           user={user}
