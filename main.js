@@ -2,6 +2,7 @@
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0a0a0f);
 
+
 // Camera setup (Orthographic for Isometric view)
 const aspect = window.innerWidth / window.innerHeight;
 const d = 25; // View size
