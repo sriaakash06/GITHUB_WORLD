@@ -10,6 +10,7 @@ const camera = new THREE.OrthographicCamera(
     -d * aspect, d * aspect, d, -d, 1, 1000
 );
 
+
 // Standard Isometric position
 camera.position.set(50, 50, 50);
 camera.lookAt(0, 0, 0);
