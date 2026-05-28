@@ -16,6 +16,7 @@
     --other: #71717a;
 }
 
+
 * {
     margin: 0;
     padding: 0;
@@ -71,6 +72,7 @@ canvas {
     opacity: 0;
     visibility: hidden;
 }
+
 
 .glass-card {
     background: rgba(255, 255, 255, 0.03);
