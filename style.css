@@ -6,6 +6,7 @@
     --text-primary: #1f2937;
     --text-secondary: #4b5563;
     --gold: #f59e0b;
+
     
     /* Language Colors */
     --js: #f7df1e;
@@ -55,6 +56,7 @@ canvas {
     padding: 1.5rem;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
+
 
 /* Login Screen */
 #login-screen {
