@@ -306,11 +306,11 @@ export default function GitVilleTownHall({ position = [0, 0, 0], username }) {
     },
   };
 
-  const DARK_STONE   = '#5c5466';
-  const MID_STONE    = '#78707e';
-  const LIGHT_STONE  = '#8a8292';
-  const ROOF_COLOR   = '#2a1810';
-  const ROOF_DARK    = '#1e1008';
+  const DARK_STONE = '#5c5466';
+  const MID_STONE = '#78707e';
+  const LIGHT_STONE = '#8a8292';
+  const ROOF_COLOR = '#2a1810';
+  const ROOF_DARK = '#1e1008';
 
   return (
     <group ref={groupRef} position={position} scale={[0.44, 0.44, 0.44]} {...handlers}>
@@ -375,13 +375,13 @@ export default function GitVilleTownHall({ position = [0, 0, 0], username }) {
       <Drawbridge position={[0, 0.75, 11.2]} />
 
       {/* Gatehouse battlements */}
-      {[-2.4,-1.2,0,1.2,2.4].map((bx,i) => <Merlon key={i} position={[bx, 6.3, 9.2]} />)}
+      {[-2.4, -1.2, 0, 1.2, 2.4].map((bx, i) => <Merlon key={i} position={[bx, 6.3, 9.2]} />)}
 
       {/* ── CORNER ROUND TOWERS ── */}
       <RoundTower position={[-8.5, 0.65, -8.5]} radius={2.0} height={9} roofColor={ROOF_COLOR} lit />
-      <RoundTower position={[ 8.5, 0.65, -8.5]} radius={2.0} height={9} roofColor={ROOF_COLOR} lit={false} />
-      <RoundTower position={[-8.5, 0.65,  8.5]} radius={2.0} height={9} roofColor={ROOF_COLOR} lit={false} />
-      <RoundTower position={[ 8.5, 0.65,  8.5]} radius={2.0} height={9} roofColor={ROOF_COLOR} lit />
+      <RoundTower position={[8.5, 0.65, -8.5]} radius={2.0} height={9} roofColor={ROOF_COLOR} lit={false} />
+      <RoundTower position={[-8.5, 0.65, 8.5]} radius={2.0} height={9} roofColor={ROOF_COLOR} lit={false} />
+      <RoundTower position={[8.5, 0.65, 8.5]} radius={2.0} height={9} roofColor={ROOF_COLOR} lit />
 
       {/* ── INNER COURTYARD (ground) ── */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.68, 0]} receiveShadow>
@@ -442,8 +442,8 @@ export default function GitVilleTownHall({ position = [0, 0, 0], username }) {
             <StoneMat color={MID_STONE} />
           </mesh>
           {/* Turret battlements */}
-          {[0,1,2,3,4,5,6,7].map((m) => (
-            <mesh key={m} position={[Math.cos(m/8*Math.PI*2)*0.85, 1.35, Math.sin(m/8*Math.PI*2)*0.85]} castShadow>
+          {[0, 1, 2, 3, 4, 5, 6, 7].map((m) => (
+            <mesh key={m} position={[Math.cos(m / 8 * Math.PI * 2) * 0.85, 1.35, Math.sin(m / 8 * Math.PI * 2) * 0.85]} castShadow>
               <boxGeometry args={[0.28, 0.7, 0.28]} />
               <StoneMat color="#6a6070" />
             </mesh>
@@ -454,10 +454,10 @@ export default function GitVilleTownHall({ position = [0, 0, 0], username }) {
 
       {/* ── FLAGS on corner towers & keep ── */}
       <CastleFlag position={[-8.5, 10.3, -8.5]} color="#cc3333" waveOffset={0.0} />
-      <CastleFlag position={[ 8.5, 10.3, -8.5]} color="#2266aa" waveOffset={1.1} />
-      <CastleFlag position={[-8.5, 10.3,  8.5]} color="#ddaa22" waveOffset={2.2} />
-      <CastleFlag position={[ 8.5, 10.3,  8.5]} color="#44aa44" waveOffset={3.3} />
-      <CastleFlag position={[0, 15.8, -1.0]}    color="#cc3333" waveOffset={0.5} />
+      <CastleFlag position={[8.5, 10.3, -8.5]} color="#2266aa" waveOffset={1.1} />
+      <CastleFlag position={[-8.5, 10.3, 8.5]} color="#ddaa22" waveOffset={2.2} />
+      <CastleFlag position={[8.5, 10.3, 8.5]} color="#44aa44" waveOffset={3.3} />
+      <CastleFlag position={[0, 15.8, -1.0]} color="#cc3333" waveOffset={0.5} />
 
       {/* ── TORCHES ── */}
       {[[-4, 9.2], [4, 9.2], [-4, -7.2], [4, -7.2]].map(([tx, tz], i) => (
@@ -465,12 +465,12 @@ export default function GitVilleTownHall({ position = [0, 0, 0], username }) {
       ))}
       {/* Gatehouse torches */}
       <Torch position={[-2.8, 4.2, 9.6]} />
-      <Torch position={[ 2.8, 4.2, 9.6]} />
+      <Torch position={[2.8, 4.2, 9.6]} />
 
       {/* ── TORCH POINT LIGHTS ── */}
       <pointLight position={[0, 4.5, 9.5]} color="#ff9920" intensity={1.2} distance={8} decay={2} />
       <pointLight position={[-4, 4.0, -8]} color="#ff8810" intensity={0.8} distance={7} decay={2} />
-      <pointLight position={[ 4, 4.0, -8]} color="#ff8810" intensity={0.8} distance={7} decay={2} />
+      <pointLight position={[4, 4.0, -8]} color="#ff8810" intensity={0.8} distance={7} decay={2} />
 
       {/* ── PORCH STEPS ── */}
       {[0, 1, 2, 3].map((i) => (
