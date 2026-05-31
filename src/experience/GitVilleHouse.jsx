@@ -2,9 +2,10 @@ import React, { useMemo } from 'react';
 import * as THREE from 'three';
 import { PALETTE } from './Constants';
 
+
 // Triangular prism roof using ExtrudeGeometry
 const PrismRoof = ({ width, depth, height, color }) => {
-  const geometry = useMemo(() => {
+  const geometry = useMemo(() =>  {
     const shape = new THREE.Shape();
     shape.moveTo(-width / 2, 0);
     shape.lineTo(width / 2, 0);
