@@ -384,6 +384,14 @@ export default function GitVilleTownHall({ position = [0, 0, 0], username }) {
   ];
   const towerRoofColors = ['#c0392b', '#c0392b', '#2c3e80', '#2c3e80'];
 
+  // Outer wall layout calculations (hexagon vertices, midpoints, and rotations)
+  const outerR = 11.7;
+  const outerRm = outerR * Math.cos(Math.PI / 6);
+  const vertexAngles = useMemo(() => [0, Math.PI / 3, 2 * Math.PI / 3, Math.PI, 4 * Math.PI / 3, 5 * Math.PI / 3], []);
+  const midAngles = useMemo(() => [Math.PI / 6, Math.PI / 2, 5 * Math.PI / 6, 7 * Math.PI / 6, 3 * Math.PI / 2, 11 * Math.PI / 6], []);
+  const outerRoofColors = useMemo(() => ['#c0392b', '#2c3e80', '#c0392b', '#2c3e80', '#c0392b', '#2c3e80'], []);
+
+
   return (
     <group
       ref={groupRef}
@@ -411,6 +419,88 @@ export default function GitVilleTownHall({ position = [0, 0, 0], username }) {
 
       {/* ── MOAT ── */}
       <Moat innerRadius={8.5} outerRadius={10} />
+
+      {/* ── OUTER WATCHTOWERS ── */}
+      {vertexAngles.map((angle, i) => (
+        <Tower
+          key={`outer-tower-${i}`}
+          position={[outerR * Math.cos(angle), 0.5, outerR * Math.sin(angle)]}
+          radius={0.75}
+          height={4.5}
+          roofColor={outerRoofColors[i]}
+        />
+      ))}
+
+      {/* ── OUTER PERIMETER WALLS ── */}
+      {midAngles.map((angle, i) => {
+        // Skip the front wall segment (i = 1), which is split for entrance gate
+        if (i === 1) return null;
+        return (
+          <CastleWall
+            key={`outer-wall-${i}`}
+            position={[outerRm * Math.cos(angle), 0.5, outerRm * Math.sin(angle)]}
+            rotation={[0, Math.PI / 2 - angle, 0]}
+            width={11.7}
+            height={3.2}
+            depth={0.5}
+          />
+        );
+      })}
+
+      {/* Front outer walls (Z+) — split for gate access */}
+      <CastleWall
+        position={[-3.65, 0.5, outerRm]}
+        rotation={[0, 0, 0]}
+        width={4.4}
+        height={3.2}
+        depth={0.5}
+      />
+      <CastleWall
+        position={[3.65, 0.5, outerRm]}
+        rotation={[0, 0, 0]}
+        width={4.4}
+        height={3.2}
+        depth={0.5}
+      />
+
+      {/* Gateway pillars at front entrance */}
+      {[-1.45, 1.45].map((x, idx) => (
+        <group key={`gate-pillar-${idx}`} position={[x, 0.5, outerRm]}>
+          {/* Main pillar column */}
+          <mesh position={[0, 1.8, 0]} castShadow receiveShadow>
+            <boxGeometry args={[0.6, 3.6, 0.6]} />
+            <meshStandardMaterial color={PALETTE.stoneDark} roughness={0.9} flatShading />
+          </mesh>
+          {/* Pillar cap */}
+          <mesh position={[0, 3.7, 0]} castShadow>
+            <boxGeometry args={[0.8, 0.2, 0.8]} />
+            <meshStandardMaterial color={PALETTE.stone} roughness={0.8} flatShading />
+          </mesh>
+          {/* Small decorative sphere on top */}
+          <mesh position={[0, 3.95, 0]} castShadow>
+            <sphereGeometry args={[0.2, 6, 6]} />
+            <meshStandardMaterial color="#f0c030" metalness={0.6} roughness={0.3} flatShading />
+          </mesh>
+        </group>
+      ))}
+
+      {/* Torches on outer perimeter walls */}
+      {midAngles.map((angle, i) => {
+        if (i === 1) return null;
+        const torchR = outerRm + 0.3;
+        return (
+          <Torch
+            key={`outer-torch-${i}`}
+            position={[torchR * Math.cos(angle), 2.2, torchR * Math.sin(angle)]}
+            rotation={[0, Math.PI / 2 - angle, 0]}
+          />
+        );
+      })}
+
+      {/* Torches on gate pillars */}
+      <Torch position={[-1.45, 2.2, outerRm + 0.35]} />
+      <Torch position={[1.45, 2.2, outerRm + 0.35]} />
+
 
       {/* ── CASTLE FOUNDATION ── */}
       <mesh position={[0, 0.8, 0]} castShadow receiveShadow>
