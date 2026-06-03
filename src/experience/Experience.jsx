@@ -10,6 +10,7 @@ import GitVilleTownHall from './GitVilleTownHall';
 import { PALETTE } from './Constants';
 import { Vehicle } from './Vehicle';
 
+
 const getCityLayout = (repos) => {
   const layout = [];
   const repoSlots = [];
