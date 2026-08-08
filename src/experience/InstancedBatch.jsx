@@ -1,5 +1,6 @@
 import React, { useLayoutEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { QUALITY } from './quality';
 
 /**
  * ═══════════════════════════════════════════════════════════════════
@@ -11,11 +12,25 @@ import * as THREE from 'three';
  * THREE.InstancedMesh draw calls instead of thousands of separate meshes.
  */
 
-// ── Unit primitives (deliberately low segment counts) ──
+// ── Unit primitives (deliberately low segment counts, lower still on mobile) ──
+const R_SEG = QUALITY.radialSegments;
+const [S_W, S_H] = QUALITY.sphereSegments;
+
 export const UNIT_BOX = new THREE.BoxGeometry(1, 1, 1);
-export const UNIT_CYL = new THREE.CylinderGeometry(0.5, 0.5, 1, 6, 1);
-export const UNIT_CONE = new THREE.ConeGeometry(0.5, 1, 6, 1);
-export const UNIT_SPHERE = new THREE.SphereGeometry(0.5, 6, 4);
+export const UNIT_CYL = new THREE.CylinderGeometry(0.5, 0.5, 1, R_SEG, 1);
+export const UNIT_CONE = new THREE.ConeGeometry(0.5, 1, R_SEG, 1);
+export const UNIT_SPHERE = new THREE.SphereGeometry(0.5, S_W, S_H);
+
+/** Rounded limb/torso stock. Normalised to a 1×1×1 box so it scales like the
+ *  others — CapsuleGeometry is 2 units tall at radius 0.5. */
+export const UNIT_CAPSULE = (() => {
+  const g = new THREE.CapsuleGeometry(0.5, 1, 2, R_SEG + 1);
+  g.scale(1, 0.5, 1);
+  return g;
+})();
+
+/** Tapered stock, wider at the top — shoulders, not a straight tube. */
+export const UNIT_TAPER = new THREE.CylinderGeometry(0.5, 0.34, 1, R_SEG + 1, 1);
 
 // ── Shared materials. Colour always arrives per instance. ──
 export const MAT_MATTE = new THREE.MeshStandardMaterial({
@@ -32,6 +47,27 @@ export const MAT_METAL = new THREE.MeshStandardMaterial({
   metalness: 0.75,
   flatShading: true,
 });
+// ── Character surfaces. Same flat-shaded look as the cottages, but a spread of
+// roughness so cloth, skin, fur and leather don't all catch light identically —
+// that variation is what keeps a low-poly figure from reading as one solid blob.
+export const MAT_CLOTH = new THREE.MeshStandardMaterial({
+  roughness: 0.88,
+  flatShading: true,
+});
+export const MAT_SKIN = new THREE.MeshStandardMaterial({
+  roughness: 0.72,
+  flatShading: true,
+});
+export const MAT_FUR = new THREE.MeshStandardMaterial({
+  roughness: 0.82,
+  flatShading: true,
+});
+/** Eyes, noses, belts — slightly glossier so the accents catch a highlight. */
+export const MAT_DETAIL = new THREE.MeshStandardMaterial({
+  roughness: 0.45,
+  flatShading: true,
+});
+
 /** Invisible, unlit material for hover/click proxy volumes. */
 export const MAT_PICK = new THREE.MeshBasicMaterial({
   transparent: true,

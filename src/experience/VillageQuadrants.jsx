@@ -9,6 +9,7 @@ import {
   HOUSE_D,
   PLOT_D,
   RING_ROAD_OUTER_R,
+  RING_ROAD_CENTER_R,
   ROAD_WIDTH,
   verifyLayout,
 } from './VillageLayout';
@@ -27,6 +28,14 @@ import {
   finalizeBatch,
   objectMatrix,
 } from './InstancedBatch';
+import { QUALITY } from './quality';
+import {
+  buildRig,
+  VILLAGER_PARTS,
+  DOG_PARTS,
+  VILLAGER_PALETTES,
+  DOG_PALETTES,
+} from './Characters';
 
 const ROOF_COLORS = [
   '#c0603f', '#b4522a', '#c97f2c', '#a4562b',
@@ -70,26 +79,22 @@ const bushParts = (variant) => {
   };
 };
 
-// ── Villager proportions (world units) ──
-const V_LEG = [0.035, 0.11, 0.035];
-const V_BODY = [0.13, 0.18, 0.13];
-const V_HEAD = [0.16, 0.16, 0.16];
-const V_HAT = [0.24, 0.08, 0.24];
-const V_LEG_Y = 0.055;
-const V_BODY_Y = 0.2;
-const V_HEAD_Y = 0.37;
-const V_HAT_Y = 0.465;
-const V_SKIN = '#f0c68a';
-const V_LEG_COLOR = '#2a3040';
-const VILLAGER_COLORS = ['#c8443c', '#3a5fb0', '#2f8b4a', '#b8478a'];
-const HAT_COLORS = ['#b56b28', '#8a5a2b', '#a06030', '#7d5230'];
-
-// Reused across frames so the villager animation allocates nothing.
+// Reused across frames so the character animation allocates nothing.
 const _m = new THREE.Matrix4();
 const _p = new THREE.Vector3();
 const _q = new THREE.Quaternion();
 const _s = new THREE.Vector3();
 const _e = new THREE.Euler();
+const _p2 = new THREE.Vector3();
+const _q2 = new THREE.Quaternion();
+const _s2 = new THREE.Vector3();
+const _e2 = new THREE.Euler();
+const _v2 = new THREE.Vector3();
+const _localM = new THREE.Matrix4();
+const _worldM = new THREE.Matrix4();
+/** Grown on demand, reused every frame. */
+const _charMats = [];
+const _swings = [];
 
 /**
  * ═══════════════════════════════════════════════════════════════════
@@ -101,10 +106,20 @@ const _e = new THREE.Euler();
  */
 export const VillageQuadrants = React.memo(function VillageQuadrants({
   layout,
+  props: propList = [],
   handleBuildingClick,
   setHoveredRepo,
 }) {
   const { placements, ringRadii, islandRadius } = layout;
+
+  /** Keeps trees and bushes from growing through the decorative props. */
+  const clearsProps = useMemo(() => {
+    if (!propList.length) return () => true;
+    return (x, z) =>
+      !propList.some(
+        (p) => Math.hypot(x - p.position[0], z - p.position[2]) < p.clearRadius
+      );
+  }, [propList]);
 
   // ── Build every static instance once per repo list ──────────────
   const village = useMemo(() => {
@@ -156,7 +171,7 @@ export const VillageQuadrants = React.memo(function VillageQuadrants({
         for (let i = 0; i < n; i++) {
           const a = (i / n) * Math.PI * 2 + rng(b * 31 + i) * 0.14;
           const rr = r + (rng(i * 7 + b * 3) - 0.5) * 0.8;
-          if (nearSpoke(a, rr)) continue;
+          if (nearSpoke(a, rr) || !clearsProps(Math.cos(a) * rr, Math.sin(a) * rr)) continue;
           const isPine = i % 3 === 0;
           scenery.push({
             kind: isPine ? 'pine' : 'bush',
@@ -176,7 +191,7 @@ export const VillageQuadrants = React.memo(function VillageQuadrants({
       const n = Math.round((2 * Math.PI * r) / 4.2);
       for (let i = 0; i < n; i++) {
         const a = (i / n) * Math.PI * 2 + rng(k * 101 + i) * 0.2;
-        if (nearSpoke(a, r)) continue;
+        if (nearSpoke(a, r) || !clearsProps(Math.cos(a) * r, Math.sin(a) * r)) continue;
         scenery.push({
           kind: 'bush',
           x: Math.cos(a) * r,
@@ -194,7 +209,7 @@ export const VillageQuadrants = React.memo(function VillageQuadrants({
     for (let i = 0; i < rimN; i++) {
       const a = (i / rimN) * Math.PI * 2 + rng(i * 71) * 0.1;
       const rr = rimR + (rng(i * 5) - 0.5) * 0.7;
-      if (nearSpoke(a, rr)) continue;
+      if (nearSpoke(a, rr) || !clearsProps(Math.cos(a) * rr, Math.sin(a) * rr)) continue;
       scenery.push({
         kind: 'pine',
         x: Math.cos(a) * rr,
@@ -225,7 +240,7 @@ export const VillageQuadrants = React.memo(function VillageQuadrants({
       sphere: finalizeBatch(sphere),
       proxy: finalizeBatch(proxy),
     };
-  }, [placements, ringRadii, islandRadius]);
+  }, [placements, ringRadii, islandRadius, clearsProps]);
 
   // ── Layout self-check: proves every repo got a legal, non-overlapping plot ──
   useEffect(() => {
@@ -264,87 +279,204 @@ export const VillageQuadrants = React.memo(function VillageQuadrants({
           speed: 0.34 + (h.index % 4) * 0.06,
           phase: rng(h.index * 3.7 + 1) * Math.PI * 2,
           sweep: 0.55,
-          body: VILLAGER_COLORS[h.index % VILLAGER_COLORS.length],
-          hat: HAT_COLORS[h.index % HAT_COLORS.length],
+          palette: VILLAGER_PALETTES[h.index % VILLAGER_PALETTES.length],
         };
       }),
     [placements]
   );
 
-  const legRef = useRef();
-  const bodyRef = useRef();
-  const headRef = useRef();
-  const hatRef = useRef();
+  /**
+   * Extra villagers walking the roads themselves rather than their own garden.
+   * They plug into the same instanced meshes and the same frame loop — the
+   * motion model (walk along a tangent, face the direction of travel) already
+   * fits a road segment, so only the base point and tangent differ.
+   *
+   * A ±2.4 sweep along the ring road's tangent bows only
+   * r − √(r²−2.4²) ≈ 0.44 off the arc, well inside the 1.2-wide road.
+   */
+  const roadVillagers = useMemo(() => {
+    const want = QUALITY.roadVillagers;
+    const out = [];
+    if (!want) return out;
+
+    // Along the ring road, on opposite sides of the castle.
+    const ringR = RING_ROAD_CENTER_R + 0.26;
+    for (let i = 0; i < Math.min(2, want); i++) {
+      const a = Math.PI / 4 + i * Math.PI;
+      const tanX = -Math.sin(a);
+      const tanZ = Math.cos(a);
+      out.push({
+        baseX: Math.cos(a) * ringR,
+        baseZ: Math.sin(a) * ringR,
+        tanX,
+        tanZ,
+        // facing = rotY + ±π/2 must land on the tangent
+        rotY: Math.atan2(-tanZ, tanX),
+        speed: 0.24 + i * 0.05,
+        phase: rng(500 + i * 11) * Math.PI * 2,
+        sweep: 2.4,
+        palette: VILLAGER_PALETTES[(i + 1) % VILLAGER_PALETTES.length],
+      });
+    }
+
+    // Out along the spokes.
+    const dirs = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+    for (let i = 0; i < want - 2; i++) {
+      const [dx, dz] = dirs[i % 4];
+      const mid = (RING_ROAD_OUTER_R + islandRadius * 0.8) / 2;
+      const offset = 0.26;
+      out.push({
+        baseX: dx * mid - dz * offset,
+        baseZ: dz * mid + dx * offset,
+        tanX: dx,
+        tanZ: dz,
+        rotY: Math.atan2(-dz, dx),
+        speed: 0.2 + i * 0.04,
+        phase: rng(700 + i * 13) * Math.PI * 2,
+        sweep: 3.0,
+        palette: VILLAGER_PALETTES[(i + 2) % VILLAGER_PALETTES.length],
+      });
+    }
+
+    return out;
+  }, [islandRadius]);
+
+  const allVillagers = useMemo(
+    () => [...villagers, ...roadVillagers],
+    [villagers, roadVillagers]
+  );
+
+  /**
+   * Dogs wandering a small loop on the grass in front of a few houses. The loop
+   * radius stays well inside the 3-unit gap the placement solver guarantees
+   * between neighbouring plots, so they never wander into a cottage.
+   */
+  const dogs = useMemo(() => {
+    const want = Math.min(QUALITY.dogCount, placements.length);
+    const out = [];
+    for (let i = 0; i < want; i++) {
+      // Spread across the repo list rather than picking the first few houses.
+      const h = placements[Math.floor((i * placements.length) / want)];
+      const t = h.rotationY;
+      const inX = Math.sin(t);
+      const inZ = Math.cos(t);
+      const tanX = Math.cos(t);
+      const tanZ = -Math.sin(t);
+      const front = (PLOT_D / 2 + 0.75) * HOUSE_SCALE;
+      const side = (i % 2 === 0 ? 1 : -1) * 0.55;
+      out.push({
+        cx: h.position[0] + inX * front + tanX * side,
+        cz: h.position[2] + inZ * front + tanZ * side,
+        loopR: 0.42 + rng(i * 5 + 3) * 0.22,
+        speed: 0.5 + rng(i * 9 + 1) * 0.35,
+        phase: rng(i * 17 + 5) * Math.PI * 2,
+        palette: DOG_PALETTES[i % DOG_PALETTES.length],
+      });
+    }
+    return out;
+  }, [placements]);
+
+  const dogRef = useRef();
+
+  // ── Character rigs: one InstancedMesh per (geometry, material) pair ──
+  const villagerRig = useMemo(() => buildRig(VILLAGER_PARTS), []);
+  const dogRig = useMemo(() => buildRig(DOG_PARTS), []);
+  const villagerMeshes = useRef([]);
+  const dogMeshes = useRef([]);
 
   useLayoutEffect(() => {
     const col = new THREE.Color();
-    villagers.forEach((v, i) => {
-      if (legRef.current) {
-        col.set(V_LEG_COLOR);
-        legRef.current.setColorAt(i * 2, col);
-        legRef.current.setColorAt(i * 2 + 1, col);
-      }
-      if (bodyRef.current) bodyRef.current.setColorAt(i, col.set(v.body));
-      if (headRef.current) headRef.current.setColorAt(i, col.set(V_SKIN));
-      if (hatRef.current) hatRef.current.setColorAt(i, col.set(v.hat));
-    });
-    [legRef, bodyRef, headRef, hatRef].forEach((r) => {
-      if (r.current?.instanceColor) r.current.instanceColor.needsUpdate = true;
-    });
-  }, [villagers]);
+
+    const paint = (rig, meshes, characters) => {
+      rig.forEach((group, g) => {
+        const mesh = meshes.current[g];
+        if (!mesh) return;
+        let i = 0;
+        for (const ch of characters) {
+          for (const part of group.parts) {
+            col.set(ch.palette[part.role] || '#ffffff');
+            mesh.setColorAt(i++, col);
+          }
+        }
+        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      });
+    };
+
+    paint(villagerRig, villagerMeshes, allVillagers);
+    paint(dogRig, dogMeshes, dogs);
+  }, [villagerRig, dogRig, allVillagers, dogs]);
 
   useFrame((state) => {
-    const legs = legRef.current;
-    const body = bodyRef.current;
-    const head = headRef.current;
-    const hat = hatRef.current;
-    if (!legs || !body || !head || !hat || !villagers.length) return;
-
+    if (!QUALITY.villagers) return;
     const time = state.clock.elapsedTime;
 
-    for (let i = 0; i < villagers.length; i++) {
-      const v = villagers[i];
-      const phase = time * v.speed + v.phase;
-      const offset = Math.sin(phase) * v.sweep;
-      const facing = v.rotY + (Math.cos(phase) >= 0 ? Math.PI / 2 : -Math.PI / 2);
-      const bob = Math.abs(Math.sin(phase * 4)) * 0.025;
+    /**
+     * One matrix per character (position + facing + bob), then every part is
+     * `characterMatrix × partLocal`. Swinging limbs pivot at their top rather
+     * than spinning about their centre.
+     */
+    const drive = (rig, meshes, characters, poseOf) => {
+      if (!characters.length || !meshes.current.length) return;
 
-      const x = v.baseX + v.tanX * offset;
-      const z = v.baseZ + v.tanZ * offset;
-
-      _e.set(0, facing, 0);
-      _q.setFromEuler(_e);
-
-      _p.set(x, V_BODY_Y + bob, z);
-      _s.set(V_BODY[0], V_BODY[1], V_BODY[2]);
-      body.setMatrixAt(i, _m.compose(_p, _q, _s));
-
-      _p.set(x, V_HEAD_Y + bob, z);
-      _s.set(V_HEAD[0], V_HEAD[1], V_HEAD[2]);
-      head.setMatrixAt(i, _m.compose(_p, _q, _s));
-
-      _p.set(x, V_HAT_Y + bob, z);
-      _s.set(V_HAT[0], V_HAT[1], V_HAT[2]);
-      hat.setMatrixAt(i, _m.compose(_p, _q, _s));
-
-      // Legs sit ±0.045 along the villager's own lateral axis and swing in step.
-      const latX = Math.cos(facing);
-      const latZ = -Math.sin(facing);
-      const swing = Math.sin(phase * 8) * 0.35;
-      _s.set(V_LEG[0], V_LEG[1], V_LEG[2]);
-      for (let l = 0; l < 2; l++) {
-        const side = l === 0 ? -0.045 : 0.045;
-        _e.set(l === 0 ? swing : -swing, facing, 0);
+      for (let c = 0; c < characters.length; c++) {
+        const pose = poseOf(characters[c], time);
+        _e.set(0, pose.yaw, 0);
         _q.setFromEuler(_e);
-        _p.set(x + latX * side, V_LEG_Y + bob, z + latZ * side);
-        legs.setMatrixAt(i * 2 + l, _m.compose(_p, _q, _s));
+        _p.set(pose.x, pose.bob, pose.z);
+        _s.set(1, 1, 1);
+        _charMats[c] = (_charMats[c] || new THREE.Matrix4()).compose(_p, _q, _s);
+        _swings[c] = pose.swing;
       }
-    }
 
-    legs.instanceMatrix.needsUpdate = true;
-    body.instanceMatrix.needsUpdate = true;
-    head.instanceMatrix.needsUpdate = true;
-    hat.instanceMatrix.needsUpdate = true;
+      rig.forEach((group, g) => {
+        const mesh = meshes.current[g];
+        if (!mesh) return;
+        let i = 0;
+        for (let c = 0; c < characters.length; c++) {
+          const charMat = _charMats[c];
+          for (const part of group.parts) {
+            let local = part.local;
+            if (part.swing) {
+              // Pivot at the top of the limb: rotate the offset from the pivot.
+              const ang = part.swing * _swings[c];
+              _e2.set(0, 0, ang);
+              _q2.setFromEuler(_e2);
+              _v2.set(0, -part.s[1] / 2, 0).applyQuaternion(_q2);
+              _p2.set(part.p[0] + _v2.x, part.pivotY + _v2.y, part.p[2] + _v2.z);
+              _s2.set(part.s[0], part.s[1], part.s[2]);
+              local = _localM.compose(_p2, _q2, _s2);
+            }
+            mesh.setMatrixAt(i++, _worldM.multiplyMatrices(charMat, local));
+          }
+        }
+        mesh.instanceMatrix.needsUpdate = true;
+      });
+    };
+
+    drive(villagerRig, villagerMeshes, allVillagers, (v, t) => {
+      const phase = t * v.speed + v.phase;
+      const offset = Math.sin(phase) * v.sweep;
+      const dir = Math.cos(phase) >= 0 ? 1 : -1;
+      return {
+        x: v.baseX + v.tanX * offset,
+        z: v.baseZ + v.tanZ * offset,
+        // Local +X leads, so yaw = atan2(-forwardZ, forwardX).
+        yaw: Math.atan2(-dir * v.tanZ, dir * v.tanX),
+        bob: Math.abs(Math.sin(phase * 8)) * 0.022,
+        swing: Math.sin(phase * 8) * 0.42,
+      };
+    });
+
+    drive(dogRig, dogMeshes, dogs, (dog, t) => {
+      const a = t * dog.speed + dog.phase;
+      return {
+        x: dog.cx + Math.cos(a) * dog.loopR,
+        z: dog.cz + Math.sin(a) * dog.loopR,
+        yaw: Math.atan2(-Math.cos(a), -Math.sin(a)),
+        bob: Math.abs(Math.sin(a * 6)) * 0.018,
+        swing: Math.sin(a * 6) * 0.5,
+      };
+    });
   });
 
   // ── Pointer handling off the invisible pick-boxes ───────────────
@@ -399,38 +531,34 @@ export const VillageQuadrants = React.memo(function VillageQuadrants({
       <InstancedBatch geometry={UNIT_SPHERE} material={MAT_MATTE} data={village.sphere} />
 
       {/* ── Villagers (all animated from a single useFrame) ── */}
-      {villagers.length > 0 && (
-        <>
-      <instancedMesh
-        ref={legRef}
-        key={`legs-${villagers.length}`}
-        args={[UNIT_BOX, MAT_MATTE, Math.max(1, villagers.length * 2)]}
-        castShadow
-        frustumCulled={false}
-      />
-      <instancedMesh
-        ref={bodyRef}
-        key={`body-${villagers.length}`}
-        args={[UNIT_CYL, MAT_MATTE, Math.max(1, villagers.length)]}
-        castShadow
-        frustumCulled={false}
-      />
-      <instancedMesh
-        ref={headRef}
-        key={`head-${villagers.length}`}
-        args={[UNIT_SPHERE, MAT_MATTE, Math.max(1, villagers.length)]}
-        castShadow
-        frustumCulled={false}
-      />
-      <instancedMesh
-        ref={hatRef}
-        key={`hat-${villagers.length}`}
-        args={[UNIT_CONE, MAT_MATTE, Math.max(1, villagers.length)]}
-        castShadow
-        frustumCulled={false}
-      />
-        </>
-      )}
+      {/* ── Villagers: torso / limbs / head / hat / belt / eyes, grouped by
+             geometry+material so extra detail costs instances, not draw calls ── */}
+      {QUALITY.villagers &&
+        allVillagers.length > 0 &&
+        villagerRig.map((group, g) => (
+          <instancedMesh
+            key={`v-${group.key}-${allVillagers.length}`}
+            ref={(el) => (villagerMeshes.current[g] = el)}
+            args={[group.geometry, group.material, allVillagers.length * group.parts.length]}
+            castShadow
+            receiveShadow
+            frustumCulled={false}
+          />
+        ))}
+
+      {/* ── Dogs roaming near a few houses (same frame loop as the villagers) ── */}
+      {QUALITY.villagers &&
+        dogs.length > 0 &&
+        dogRig.map((group, g) => (
+          <instancedMesh
+            key={`d-${group.key}-${dogs.length}`}
+            ref={(el) => (dogMeshes.current[g] = el)}
+            args={[group.geometry, group.material, dogs.length * group.parts.length]}
+            castShadow
+            receiveShadow
+            frustumCulled={false}
+          />
+        ))}
 
       {/* ── Invisible hover/click proxies, one per house ── */}
       <InstancedBatch

@@ -278,6 +278,262 @@ export function placeHouses(repos = []) {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// DECORATIVE PROPS — scenery only, never tied to repo data
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Hand-picked spots, all in open grass:
+ *  - angles sit between house angles (houses land on quadStart + 22.5/45/67.5)
+ *    and well clear of the 4 spoke roads on the axes,
+ *  - radii sit in the gaps the ring solver already guarantees.
+ * `verifyProps` re-checks all of that against the real layout.
+ */
+/** How many of each prop to aim for, and its footprint. */
+const PROP_KINDS = [
+  { kind: 'waterTower', count: 4, w: 1.9, d: 1.9, faceCastle: true, prefer: 'outer' },
+  { kind: 'windmill', count: 4, w: 1.5, d: 1.5, faceCastle: true, prefer: 'open' },
+  { kind: 'wagon', count: 4, w: 1.7, d: 1.0, faceCastle: false, prefer: 'nearHouses' },
+  // Market stalls face the castle so their open counter greets the road.
+  { kind: 'stall', count: 2, w: 2.1, d: 1.3, faceCastle: true, prefer: 'nearHouses' },
+];
+
+/** Clearances a prop must keep. */
+const PROP_HOUSE_GAP = 0.8;
+const PROP_PROP_GAP = 1.8; // keeps them from bunching up
+const ANGLE_STEPS = 12; // candidate angles per quadrant (7.5° apart)
+const RADIUS_STEP = 0.4;
+
+/** Deterministic 0..1 noise, so the scatter is identical on every reload. */
+const hash01 = (n) => {
+  const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+  return x - Math.floor(x);
+};
+
+/**
+ * Radii a prop of this size may occupy: outside the ring road, inside the
+ * cliff edge, and never straddling one of the ring footpaths.
+ *
+ * Note this deliberately does NOT exclude the house-ring radii — houses only
+ * block their own angular slots, and the gaps between them are usable space.
+ * The per-house bounding-box test in `propFits` sorts that out.
+ */
+function legalRadii(half, layout) {
+  const { ringRadii, islandRadius } = layout;
+  const footpaths = ringRadii.map((R) => [R - HOUSE_D / 2 - 0.5, R - HOUSE_D / 2]);
+
+  const out = [];
+  const min = RING_ROAD_OUTER_R + half + 0.3;
+  const max = islandRadius - 0.8 - half;
+  for (let r = min; r <= max; r += RADIUS_STEP) {
+    const onPath = footpaths.some(([a, b]) => r + half > a && r - half < b);
+    if (!onPath) out.push(r);
+  }
+  return out;
+}
+
+/** Does this candidate clear every house, every placed prop, the roads and the edge? */
+function propFits(cand, houseBoxes, placed, islandRadius) {
+  const box = { x: cand.x, z: cand.z, rot: cand.rotY, hw: cand.w / 2, hd: cand.d / 2 };
+
+  for (const h of houseBoxes) {
+    if (footprintGap(box, h) < PROP_HOUSE_GAP) return false;
+  }
+  for (const p of placed) {
+    const other = {
+      x: p.position[0], z: p.position[2], rot: p.rotY, hw: p.w / 2, hd: p.d / 2,
+    };
+    if (footprintGap(box, other) < PROP_PROP_GAP) return false;
+  }
+
+  const half = Math.hypot(cand.w, cand.d) / 2;
+  const r = Math.hypot(cand.x, cand.z);
+  if (r - half <= RING_ROAD_OUTER_R) return false;
+  if (r + half > islandRadius - 0.8) return false;
+
+  const spokeClearance = ROAD_WIDTH / 2 + 0.4;
+  for (const pt of corners(box)) {
+    if (Math.min(Math.abs(pt[0]), Math.abs(pt[1])) < spokeClearance) return false;
+  }
+  return true;
+}
+
+/**
+ * Places the decorative props. Purely scenery — no repo data involved.
+ *
+ * Each kind walks the four quadrants in turn (offset per kind, so the kinds
+ * interleave rather than stacking in the same corner) and takes the first
+ * candidate spot that clears everything. Radial bands are tried in an order
+ * that suits the prop: water towers out toward the edge, windmills in the most
+ * open grass, wagons beside the house rings.
+ */
+export function computeProps(layout) {
+  const placements = layout.placements || [];
+  const houseBoxes = placements.map((p) => ({
+    id: p.index,
+    x: p.position[0],
+    z: p.position[2],
+    rot: p.rotationY,
+    hw: HOUSE_W / 2,
+    hd: HOUSE_D / 2,
+  }));
+
+  const { ringRadii, islandRadius } = layout;
+  const placed = [];
+  const missing = [];
+  let serial = 0;
+
+  PROP_KINDS.forEach((def, kindIndex) => {
+    const half = Math.hypot(def.w, def.d) / 2;
+    const radii = legalRadii(half, layout);
+
+    const rMin = radii.length ? radii[0] : 0;
+    const rMax = radii.length ? radii[radii.length - 1] : 1;
+    const span = Math.max(0.001, rMax - rMin);
+
+    /**
+     * Each instance aims at a different slice of the island so four of the same
+     * prop don't end up ringed at one radius — plus a kind-level bias: towers
+     * out toward the edge, windmills in open grass, wagons hugging a house ring.
+     */
+    const TARGETS = {
+      outer: [0.96, 0.52, 0.78, 0.3],
+      open: [0.08, 0.38, 0.2, 0.58],
+      nearHouses: [0.22, 0.48, 0.72, 0.94],
+    };
+
+    for (let i = 0; i < def.count; i++) {
+      const target = TARGETS[def.prefer][i % 4];
+      const score = (r) => {
+        const rNorm = (r - rMin) / span;
+        let s = 1 - Math.abs(rNorm - target);
+        const nearestRing = Math.min(...ringRadii.map((R) => Math.abs(r - R)));
+        if (def.prefer === 'nearHouses') s += 0.5 * (1 - Math.min(1, nearestRing / 4));
+        if (def.prefer === 'open') s += 0.4 * Math.min(1, nearestRing / 4);
+        return s;
+      };
+
+      // Interleave quadrants so the island fills evenly in all four directions.
+      const q = (i + kindIndex) % 4;
+
+      // Rank every (radius, angle) slot in this quadrant, then take the best fit.
+      // The seeded jitter is what keeps same-kind instances from lining up.
+      const cands = [];
+      radii.forEach((r, ri) => {
+        for (let ai = 0; ai < ANGLE_STEPS; ai++) {
+          const angle = q * QUAD_ARC + ((ai + 0.5) / ANGLE_STEPS) * QUAD_ARC;
+          cands.push({
+            r,
+            angle,
+            rank: score(r) + 0.25 * hash01(kindIndex * 991 + i * 97 + ri * 13 + ai * 7),
+          });
+        }
+      });
+      cands.sort((a, b) => b.rank - a.rank);
+
+      let done = false;
+      for (const c of cands) {
+        const x = Math.cos(c.angle) * c.r;
+        const z = Math.sin(c.angle) * c.r;
+        const inward = Math.atan2(-x, -z);
+        const cand = {
+          x, z, w: def.w, d: def.d,
+          // Face the castle like the cottages; wagons sit side-on, as if parked.
+          rotY: def.faceCastle ? inward : inward + Math.PI / 2,
+        };
+
+        if (!propFits(cand, houseBoxes, placed, islandRadius)) continue;
+
+        placed.push({
+          id: `${def.kind}-${serial++}`,
+          kind: def.kind,
+          position: [x, 0, z],
+          rotY: cand.rotY,
+          w: def.w,
+          d: def.d,
+          radius: c.r,
+          angle: c.angle,
+          quadrant: q,
+          /** Radius within which trees and bushes should stand aside. */
+          clearRadius: half + 0.9,
+        });
+        done = true;
+        break;
+      }
+
+      // Never fail silently — a small island genuinely may not have room.
+      if (!done) missing.push(`${def.kind} #${i + 1} (quadrant ${q})`);
+    }
+  });
+
+  if (missing.length && typeof console !== 'undefined') {
+    console.warn(
+      `[GitVille] ${placed.length} props placed; no room for: ${missing.join(', ')}`
+    );
+  }
+
+  return placed;
+}
+
+/** Same checks the houses get: no overlapping houses, roads, moat or the edge. */
+export function verifyProps(props, { placements, islandRadius }) {
+  const problems = [];
+  const spokeClearance = ROAD_WIDTH / 2 + 0.4;
+
+  const houseBoxes = placements.map((p) => ({
+    id: p.index,
+    x: p.position[0],
+    z: p.position[2],
+    rot: p.rotationY,
+    hw: HOUSE_W / 2,
+    hd: HOUSE_D / 2,
+  }));
+
+  for (const prop of props) {
+    const box = {
+      x: prop.position[0],
+      z: prop.position[2],
+      rot: prop.rotY,
+      hw: prop.w / 2,
+      hd: prop.d / 2,
+    };
+
+    for (const h of houseBoxes) {
+      const gap = footprintGap(box, h);
+      if (gap < 0.6) {
+        problems.push(`${prop.id} is only ${gap.toFixed(2)}u from house #${h.id}`);
+      }
+    }
+
+    for (const other of props) {
+      if (other === prop) continue;
+      const gap = footprintGap(box, {
+        x: other.position[0], z: other.position[2], rot: other.rotY,
+        hw: other.w / 2, hd: other.d / 2,
+      });
+      if (gap < 1.0) problems.push(`${prop.id} is only ${gap.toFixed(2)}u from ${other.id}`);
+    }
+
+    const half = Math.hypot(prop.w, prop.d) / 2;
+    if (prop.radius - half <= RING_ROAD_OUTER_R) {
+      problems.push(`${prop.id} reaches r=${(prop.radius - half).toFixed(2)}, inside the ring road`);
+    }
+    if (prop.radius + half > islandRadius - 0.8) {
+      problems.push(`${prop.id} reaches r=${(prop.radius + half).toFixed(2)}, past the island edge`);
+    }
+
+    for (const pt of corners(box)) {
+      const toAxis = Math.min(Math.abs(pt[0]), Math.abs(pt[1]));
+      if (toAxis < spokeClearance) {
+        problems.push(`${prop.id} is ${toAxis.toFixed(2)}u from a spoke road`);
+        break;
+      }
+    }
+  }
+
+  return problems;
+}
+
+// ─────────────────────────────────────────────────────────────────
 // BOUNDING-BOX VERIFICATION  (Fix 3, final clause)
 // ─────────────────────────────────────────────────────────────────
 

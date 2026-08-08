@@ -6,8 +6,10 @@ import { Experience } from '../experience/Experience';
 import { HUD } from '../components/HUD';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { ErrorScreen } from '../components/ErrorScreen';
+import { RepoPanel } from '../components/RepoPanel';
 import { useGitHubWorld } from '../hooks/useGitHubWorld';
 import { SKY_DAY, SKY_NIGHT } from '../experience/Constants';
+import { QUALITY, IS_LOW_POWER } from '../experience/quality';
 
 /**
  * The shareable page. Everything it renders comes from the :username route
@@ -20,6 +22,8 @@ export function World() {
 
   const [isNightMode, setIsNightMode] = useState(false);
   const [hoveredRepo, setHoveredRepo] = useState(null);
+  // Lifted out of <Experience> so the HTML details panel can read it.
+  const [selectedRepo, setSelectedRepo] = useState(null);
 
   // Filtering state
   const [searchQuery, setSearchQuery] = useState('');
@@ -32,6 +36,7 @@ export function World() {
     setSelectedLanguage('');
     setMinStars(0);
     setHoveredRepo(null);
+    setSelectedRepo(null);
   }, [username]);
 
   useEffect(() => {
@@ -68,9 +73,10 @@ export function World() {
   return (
     <div className="app-container">
       <Canvas
-        shadows
-        camera={{ position: [55, 55, 55], fov: 38 }}
-        gl={{ antialias: true, toneMapping: 4 }}
+        shadows={QUALITY.shadows}
+        dpr={QUALITY.dpr}
+        camera={{ position: [55, 55, 55], fov: 38, near: 0.5, far: 1200 }}
+        gl={{ antialias: !IS_LOW_POWER, toneMapping: 4, powerPreference: 'high-performance' }}
         id="world-canvas"
       >
         <color attach="background" args={[skyColor]} />
@@ -82,8 +88,16 @@ export function World() {
           isCinematic={isLoading}
           setHoveredRepo={setHoveredRepo}
           isNightMode={isNightMode}
+          selectedRepo={selectedRepo}
+          onSelectRepo={setSelectedRepo}
         />
       </Canvas>
+
+      <RepoPanel
+        repo={selectedRepo}
+        username={user?.username || username}
+        onClose={() => setSelectedRepo(null)}
+      />
 
       {user && (
         <HUD

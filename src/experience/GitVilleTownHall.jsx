@@ -2,6 +2,7 @@ import React, { useMemo, useState, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { PALETTE } from './Constants';
+import { QUALITY } from './quality';
 import {
   CASTLE_SCALE,
   MOAT_INNER_R,
@@ -295,9 +296,11 @@ const Keep = ({ position }) => (
 // ─────────────────────────────────────────────
 export const MoatWaterRing = ({ innerRadius = 1.95, outerRadius = 3.45 }) => (
   <group position={[0, 0, 0]}>
-    {/* Water Ring surface */}
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]} receiveShadow>
-      <ringGeometry args={[innerRadius, outerRadius, 64]} />
+    {/* Water Ring surface.
+        thetaStart/thetaLength are spelled out rather than left to RingGeometry's
+        defaults so the full 360° sweep is obvious and can't drift. */}
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]} receiveShadow>
+      <ringGeometry args={[innerRadius, outerRadius, 96, 1, 0, Math.PI * 2]} />
       <meshStandardMaterial
         color="#4db8ff"
         emissive="#1a8cff"
@@ -310,9 +313,10 @@ export const MoatWaterRing = ({ innerRadius = 1.95, outerRadius = 3.45 }) => (
         flatShading
       />
     </mesh>
-    {/* Moat bed trench */}
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.15, 0]} receiveShadow>
-      <ringGeometry args={[innerRadius - 0.08, outerRadius + 0.08, 64]} />
+    {/* Moat bed, just under the water so the ring reads as depth rather than
+        a painted-on disc. */}
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0]} receiveShadow>
+      <ringGeometry args={[innerRadius - 0.1, outerRadius + 0.1, 96, 1, 0, Math.PI * 2]} />
       <meshStandardMaterial color="#194866" roughness={0.9} flatShading side={THREE.DoubleSide} />
     </mesh>
   </group>
@@ -439,20 +443,26 @@ export default function GitVilleTownHall({ position = [0, 0, 0], username, isNig
           );
         }}
       >
-        {/* ── CASTLE PLATFORM ── */}
+        {/* ── CASTLE PLATFORM ──
+            These discs were 6-sided. Against a perfectly circular moat that made
+            the visible water gap swing between 0.20 and 0.74 world units (3.7×)
+            around the ring — the water read as lopsided even though it wasn't.
+            24 segments keeps the flat-shaded low-poly look while letting the
+            moat sit as an even band. The castle's own hexagonal architecture
+            (6 outer towers and walls) is untouched. */}
         <group>
           {/* Grass top */}
           <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.55, 0]} receiveShadow>
-            <circleGeometry args={[12, 6]} />
+            <circleGeometry args={[12, 24]} />
             <meshStandardMaterial color={PALETTE.grassLight} flatShading roughness={0.9} />
           </mesh>
           {/* Stone base layers */}
           <mesh position={[0, 0.3, 0]} castShadow receiveShadow>
-            <cylinderGeometry args={[11.8, 12.5, 0.6, 6]} />
+            <cylinderGeometry args={[11.8, 12.5, 0.6, 24]} />
             <meshStandardMaterial color={PALETTE.stone} flatShading roughness={0.95} />
           </mesh>
           <mesh position={[0, -0.1, 0]} castShadow receiveShadow>
-            <cylinderGeometry args={[12.5, 13.5, 0.6, 6]} />
+            <cylinderGeometry args={[12.5, 13.5, 0.6, 24]} />
             <meshStandardMaterial color={PALETTE.stoneDark} flatShading roughness={0.95} />
           </mesh>
         </group>
@@ -530,8 +540,8 @@ export default function GitVilleTownHall({ position = [0, 0, 0], username, isNig
           );
         })}
 
-        <Torch position={[-1.45, 2.2, outerRm + 0.35]} light={isNightMode} />
-        <Torch position={[1.45, 2.2, outerRm + 0.35]} light={isNightMode} />
+        <Torch position={[-1.45, 2.2, outerRm + 0.35]} light={isNightMode && QUALITY.castleTorchLights} />
+        <Torch position={[1.45, 2.2, outerRm + 0.35]} light={isNightMode && QUALITY.castleTorchLights} />
 
         {/* ── CASTLE FOUNDATION ── */}
         <mesh position={[0, 0.8, 0]} castShadow receiveShadow>

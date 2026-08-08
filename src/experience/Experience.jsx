@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useEffect, useState } from 'react';
+import React, { useMemo, useRef, useEffect, useLayoutEffect } from 'react';
 import { OrbitControls, ContactShadows, SoftShadows } from '@react-three/drei';
 import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -8,9 +8,11 @@ import GitVilleTownHall from './GitVilleTownHall';
 import { IslandBase } from './IslandBase';
 import { IslandRoadSystem } from './IslandRoadSystem';
 import { VillageQuadrants } from './VillageQuadrants';
-import { placeHouses } from './VillageLayout';
+import { placeHouses, computeProps, verifyProps } from './VillageLayout';
+import { VillageProps } from './VillageProps';
 import { SKY_DAY, SKY_NIGHT } from './Constants';
-import { UNIT_BOX, UNIT_SPHERE, MAT_MATTE } from './InstancedBatch';
+import { UNIT_BOX, MAT_MATTE } from './InstancedBatch';
+import { QUALITY } from './quality';
 
 /** Village shown before anyone logs in. */
 const DEMO_REPOS = Array.from({ length: 25 }, (_, i) => ({
@@ -32,6 +34,29 @@ const CLOUD_PUFFS = [
 ];
 const BALLOON_COLORS = ['#e05545', '#e8b93a', '#4a9fe0', '#e07bb0'];
 
+// ── House-focus camera framing (Fix 3) ──
+/** Distance in front of the door. Must stay under the 4.95 ring step. */
+const FOCUS_BACK = 3.6;
+/** Slight sideways offset so the shot is 3/4 rather than dead-on. */
+const FOCUS_SIDE = 0.9;
+const FOCUS_HEIGHT = 2.2;
+const FOCUS_TARGET_Y = 0.85;
+
+/**
+ * Clouds and balloon envelopes get their own, rounder sphere.
+ *
+ * They share one instanced draw call each, so segment count costs almost
+ * nothing here — whereas the shared UNIT_SPHERE (6×4, or 5×3 on mobile) is
+ * tuned for ~1000 tiny ground-level instances. At 4 height segments a white
+ * cloud puff reads as a floating cube, which is exactly the "stray white box"
+ * that appeared next to the balloons.
+ */
+const SKY_SPHERE = new THREE.SphereGeometry(
+  0.5,
+  QUALITY.tier === 'low' ? 9 : 14,
+  QUALITY.tier === 'low' ? 6 : 9
+);
+
 const _sm = new THREE.Matrix4();
 const _sp = new THREE.Vector3();
 const _sq = new THREE.Quaternion();
@@ -44,7 +69,7 @@ const SkyDecor = React.memo(function SkyDecor({ islandRadius }) {
     const seed = (n) => Math.abs(Math.sin(n * 9301 + 49297) * 233280) % 1;
     const list = [];
 
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < QUALITY.cloudCount; i++) {
       list.push({
         kind: 'cloud',
         x: (seed(i) - 0.5) * spread * 1.4,
@@ -57,7 +82,7 @@ const SkyDecor = React.memo(function SkyDecor({ islandRadius }) {
       });
     }
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < QUALITY.balloonCount; i++) {
       list.push({
         kind: 'balloon',
         x: (seed(i + 100) - 0.5) * spread,
@@ -118,20 +143,23 @@ const SkyDecor = React.memo(function SkyDecor({ islandRadius }) {
       if (b.x < camera.position.x - limit) b.x = camera.position.x + limit;
       if (b.z < camera.position.z - limit) b.z = camera.position.z + limit;
       b.dy = Math.sin(t * 0.6 + b.bob) * 0.8;
+      // Balloons also drift gently side to side; clouds just track straight.
+      b.dx = b.kind === 'balloon' ? Math.sin(t * 0.21 + b.bob) * 2.6 : 0;
+      b.dz = b.kind === 'balloon' ? Math.cos(t * 0.17 + b.bob * 1.3) * 1.8 : 0;
     }
 
     _sq.identity();
     for (let i = 0; i < plan.spheres.length; i++) {
       const p = plan.spheres[i];
       const b = bodies[p.bi];
-      _sp.set(b.x + p.o[0] * b.scale, b.y + b.dy + p.o[1] * b.scale, b.z + p.o[2] * b.scale);
+      _sp.set(b.x + b.dx + p.o[0] * b.scale, b.y + b.dy + p.o[1] * b.scale, b.z + b.dz + p.o[2] * b.scale);
       _ss.set(p.sc[0] * b.scale, p.sc[1] * b.scale, p.sc[2] * b.scale);
       sMesh.setMatrixAt(i, _sm.compose(_sp, _sq, _ss));
     }
     for (let i = 0; i < plan.boxes.length; i++) {
       const p = plan.boxes[i];
       const b = bodies[p.bi];
-      _sp.set(b.x + p.o[0] * b.scale, b.y + b.dy + p.o[1] * b.scale, b.z + p.o[2] * b.scale);
+      _sp.set(b.x + b.dx + p.o[0] * b.scale, b.y + b.dy + p.o[1] * b.scale, b.z + b.dz + p.o[2] * b.scale);
       _ss.set(p.sc[0] * b.scale, p.sc[1] * b.scale, p.sc[2] * b.scale);
       bMesh.setMatrixAt(i, _sm.compose(_sp, _sq, _ss));
     }
@@ -145,7 +173,7 @@ const SkyDecor = React.memo(function SkyDecor({ islandRadius }) {
       <instancedMesh
         ref={sphereRef}
         key={`sky-s-${plan.spheres.length}`}
-        args={[UNIT_SPHERE, MAT_MATTE, plan.spheres.length]}
+        args={[SKY_SPHERE, MAT_MATTE, plan.spheres.length]}
         frustumCulled={false}
       />
       <instancedMesh
@@ -159,13 +187,187 @@ const SkyDecor = React.memo(function SkyDecor({ islandRadius }) {
 });
 
 // ─────────────────────────────────────────────
+// BIRD FLOCK — instanced chevrons on a looping path
+// ─────────────────────────────────────────────
+const BIRD_COLOR = '#2b3038';
+const BIRD_WING = [0.2, 0.03, 0.5]; // short along the body, long across the span
+const BIRD_SPAN = 0.28;
+
+const _bm = new THREE.Matrix4();
+const _bw = new THREE.Matrix4();
+const _bp = new THREE.Vector3();
+const _bq = new THREE.Quaternion();
+const _bs = new THREE.Vector3();
+const _be = new THREE.Euler();
+const _wingP = new THREE.Vector3();
+
+/**
+ * Each bird is two thin planks hinged at its centre, so it reads as a flattened
+ * chevron from any angle. All of them share ONE InstancedMesh and one useFrame:
+ * 9 birds × 2 wings = 18 instances, 1 draw call.
+ */
+const Birds = React.memo(function Birds({ islandRadius }) {
+  const meshRef = useRef();
+
+  const flock = useMemo(() => {
+    const n = QUALITY.birdCount;
+    const seed = (v) => Math.abs(Math.sin(v * 9301 + 49297) * 233280) % 1;
+    // Loose V: a leader with pairs trailing behind and out to each side.
+    return Array.from({ length: n }, (_, i) => {
+      const row = Math.ceil(i / 2);
+      const side = i % 2 === 0 ? -1 : 1;
+      return {
+        back: row * 1.15 + seed(i) * 0.3,
+        side: side * row * 0.95 + (seed(i + 7) - 0.5) * 0.3,
+        bob: seed(i + 13) * Math.PI * 2,
+        flapRate: 7 + seed(i + 21) * 3,
+      };
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+    const col = new THREE.Color(BIRD_COLOR);
+    for (let i = 0; i < flock.length * 2; i++) mesh.setColorAt(i, col);
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  }, [flock]);
+
+  useFrame((state) => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+
+    const t = state.clock.elapsedTime;
+    const pathR = islandRadius * 0.8;
+    const alt = islandRadius * 0.85 + 6;
+    const a = t * 0.055; // one slow lap
+
+    const ca = Math.cos(a);
+    const sa = Math.sin(a);
+    // Flock frame: forward is the circle's tangent, right points outward.
+    const fx = -sa;
+    const fz = ca;
+    const heading = Math.atan2(-fx, -fz) + Math.PI;
+
+    let i = 0;
+    for (const bird of flock) {
+      const cx = ca * pathR - fx * bird.back + ca * bird.side;
+      const cz = sa * pathR - fz * bird.back + sa * bird.side;
+      const cy = alt + Math.sin(t * 0.5 + bird.bob) * 1.4;
+
+      _bp.set(cx, cy, cz);
+      _be.set(0, heading, 0);
+      _bq.setFromEuler(_be);
+      _bs.set(1, 1, 1);
+      _bm.compose(_bp, _bq, _bs);
+
+      const flap = Math.sin(t * bird.flapRate + bird.bob) * 0.7;
+      for (const s of [-1, 1]) {
+        _be.set(s * flap, 0, 0);
+        _bq.setFromEuler(_be);
+        // Hinge at the body centre: rotate the offset, don't translate first.
+        _wingP.set(0, 0, s * BIRD_SPAN).applyQuaternion(_bq);
+        _bs.set(BIRD_WING[0], BIRD_WING[1], BIRD_WING[2]);
+        _bw.compose(_wingP, _bq, _bs);
+        mesh.setMatrixAt(i++, _bw.premultiply(_bm));
+      }
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+  });
+
+  if (!flock.length) return null;
+
+  return (
+    <instancedMesh
+      ref={meshRef}
+      key={`birds-${flock.length}`}
+      args={[UNIT_BOX, MAT_MATTE, flock.length * 2]}
+      frustumCulled={false}
+    />
+  );
+});
+
+// ─────────────────────────────────────────────
+// NIGHT SKY — moon + starfield
+// ─────────────────────────────────────────────
+const NightSky = React.memo(function NightSky({ islandRadius }) {
+  const stars = useMemo(() => {
+    const n = QUALITY.starCount;
+    const r = islandRadius * 6;
+    const pos = new Float32Array(n * 3);
+    const seed = (v) => Math.abs(Math.sin(v * 12.9898 + 78.233) * 43758.5453) % 1;
+
+    for (let i = 0; i < n; i++) {
+      // Even-ish spread over the upper dome.
+      const u = seed(i * 3 + 1);
+      const phi = Math.acos(1 - 0.92 * seed(i * 3 + 2)); // bias away from the horizon
+      const theta = u * Math.PI * 2;
+      const d = r * (0.85 + seed(i * 3 + 3) * 0.3);
+      pos[i * 3] = Math.sin(phi) * Math.cos(theta) * d;
+      pos[i * 3 + 1] = Math.cos(phi) * d;
+      pos[i * 3 + 2] = Math.sin(phi) * Math.sin(theta) * d;
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    return geo;
+  }, [islandRadius]);
+
+  const moonPos = useMemo(
+    () => [-islandRadius * 1.5, islandRadius * 1.9, -islandRadius * 1.9],
+    [islandRadius]
+  );
+
+  return (
+    <group>
+      {/* Moon — emissive so it stays bright under the dimmed night lighting,
+          and unlit/unfogged so distance doesn't wash it out. */}
+      <mesh position={moonPos}>
+        <sphereGeometry args={[islandRadius * 0.16, 14, 10]} />
+        <meshStandardMaterial
+          color="#fdf6d8"
+          emissive="#f7ecc0"
+          emissiveIntensity={1.5}
+          roughness={1}
+          flatShading
+          fog={false}
+          toneMapped={false}
+        />
+      </mesh>
+
+      {/* Starfield. Points are one draw call and no lighting work. */}
+      <points geometry={stars} frustumCulled={false}>
+        <pointsMaterial
+          size={islandRadius * 0.035}
+          sizeAttenuation
+          color="#ffffff"
+          transparent
+          opacity={0.85}
+          depthWrite={false}
+          fog={false}
+          toneMapped={false}
+        />
+      </points>
+    </group>
+  );
+});
+
+// ─────────────────────────────────────────────
 // MAIN EXPERIENCE
 // ─────────────────────────────────────────────
-export const Experience = ({ repos, user, isCinematic, setHoveredRepo, isNightMode }) => {
+export const Experience = ({
+  repos,
+  user,
+  isCinematic,
+  setHoveredRepo,
+  isNightMode,
+  selectedRepo,
+  onSelectRepo,
+}) => {
   const controlsRef = useRef();
   const { camera } = useThree();
-  const [selectedRepo, setSelectedRepo] = useState(null);
   const keys = useRef({ w: false, a: false, s: false, d: false });
+  const setSelectedRepo = onSelectRepo;
 
   // One house per repo — the layout is solved once and shared by the island,
   // the roads and the village so every radius agrees.
@@ -174,6 +376,15 @@ export const Experience = ({ repos, user, isCinematic, setHoveredRepo, isNightMo
     [repos]
   );
   const islandRadius = layout.islandRadius;
+
+  // Decorative scenery — no repo data involved.
+  const props = useMemo(() => computeProps(layout), [layout]);
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const problems = verifyProps(props, layout);
+    if (problems.length) console.warn('[GitVille] prop placement:', problems);
+    else console.log(`[GitVille] ${props.length} decorative props placed, all clear of houses/roads.`);
+  }, [props, layout]);
 
   // WASD controls
   useEffect(() => {
@@ -217,39 +428,65 @@ export const Experience = ({ repos, user, isCinematic, setHoveredRepo, isNightMo
     camera.position.add(moveVec);
   });
 
+  /** Tween the camera and the orbit target together. */
+  const flyTo = (camPos, lookAt, duration = 0.85) => {
+    gsap.killTweensOf(camera.position);
+    gsap.to(camera.position, { ...camPos, duration, ease: 'power3.inOut', overwrite: true });
+    if (controlsRef.current) {
+      gsap.killTweensOf(controlsRef.current.target);
+      gsap.to(controlsRef.current.target, {
+        ...lookAt,
+        duration,
+        ease: 'power3.inOut',
+        overwrite: true,
+      });
+    }
+  };
+
+  const goHome = (duration = 1.1) =>
+    flyTo({ x: home.x, y: home.y, z: home.z }, { x: 0, y: 2, z: 0 }, duration);
+
+  /**
+   * Frame a house from the front. Every cottage's door faces the castle, so
+   * "in front of the door" means standing between the castle and the house —
+   * the old handler multiplied the position by 1.18, which parked the camera
+   * further out and showed the back wall. A small tangential offset keeps it
+   * from being a flat head-on shot.
+   *
+   * The ring step is 4.95, so `radius − 3.6` always lands in the clear grass
+   * band between two rings rather than inside the ring below.
+   */
   const handleBuildingClick = (repo, buildingPosition) => {
     setSelectedRepo(repo);
 
-    const targetCameraPos = new THREE.Vector3(
-      buildingPosition[0] * 1.18 - 4,
-      buildingPosition[1] + 9,
-      buildingPosition[2] * 1.18 + 4
+    const [hx, , hz] = buildingPosition;
+    const radius = Math.hypot(hx, hz) || 1;
+    const nx = hx / radius;
+    const nz = hz / radius;
+
+    flyTo(
+      {
+        x: nx * (radius - FOCUS_BACK) - nz * FOCUS_SIDE,
+        y: FOCUS_HEIGHT,
+        z: nz * (radius - FOCUS_BACK) + nx * FOCUS_SIDE,
+      },
+      { x: hx, y: FOCUS_TARGET_Y, z: hz }
     );
-    const lookAtPos = new THREE.Vector3(
-      buildingPosition[0],
-      buildingPosition[1] + 1,
-      buildingPosition[2]
-    );
-
-    gsap.killTweensOf(camera.position);
-    gsap.killTweensOf(controlsRef.current.target);
-
-    gsap.to(camera.position, {
-      x: targetCameraPos.x,
-      y: targetCameraPos.y,
-      z: targetCameraPos.z,
-      duration: 1.5,
-      ease: 'power3.inOut',
-    });
-
-    gsap.to(controlsRef.current.target, {
-      x: lookAtPos.x,
-      y: lookAtPos.y,
-      z: lookAtPos.z,
-      duration: 1.5,
-      ease: 'power3.inOut',
-    });
   };
+
+  // Returning to the overview is driven by `selectedRepo` clearing, so the
+  // "Back to Village" button, a ground click and Escape all share one path.
+  const wasSelected = useRef(false);
+  useEffect(() => {
+    if (selectedRepo) {
+      wasSelected.current = true;
+      return;
+    }
+    if (wasSelected.current) {
+      wasSelected.current = false;
+      goHome();
+    }
+  }, [selectedRepo]);
 
   // ── Camera framing follows the island so a 60-repo world still fits ──
   const home = useMemo(() => {
@@ -257,42 +494,23 @@ export const Experience = ({ repos, user, isCinematic, setHoveredRepo, isNightMo
     return dir.multiplyScalar(islandRadius * 3.0);
   }, [islandRadius]);
 
+  // Re-frame when the island resizes (repos finish loading) — unless the
+  // visitor is currently focused on a house.
   useEffect(() => {
-    gsap.killTweensOf(camera.position);
-    gsap.to(camera.position, {
-      x: home.x,
-      y: home.y,
-      z: home.z,
-      duration: 1.2,
-      ease: 'power3.out',
-    });
-    if (controlsRef.current) {
-      gsap.killTweensOf(controlsRef.current.target);
-      gsap.to(controlsRef.current.target, { x: 0, y: 2, z: 0, duration: 1.2, ease: 'power3.out' });
-    }
+    if (selectedRepo) return;
+    goHome(1.2);
   }, [camera, home]);
 
   useEffect(() => {
     const onReset = () => {
-      setSelectedRepo(null);
-      gsap.killTweensOf(camera.position);
-      if (controlsRef.current) gsap.killTweensOf(controlsRef.current.target);
-
-      gsap.to(camera.position, {
-        x: home.x,
-        y: home.y,
-        z: home.z,
-        duration: 1.5,
-        ease: 'power3.out',
-      });
-      if (controlsRef.current) {
-        gsap.to(controlsRef.current.target, { x: 0, y: 2, z: 0, duration: 1.5, ease: 'power3.out' });
-      }
+      // Clearing the selection triggers the fly-home effect above.
+      if (selectedRepo) setSelectedRepo(null);
+      else goHome(1.4);
     };
 
     window.addEventListener('reset-camera', onReset);
     return () => window.removeEventListener('reset-camera', onReset);
-  }, [camera, home]);
+  }, [camera, home, selectedRepo]);
 
   const skyColor = isNightMode ? SKY_NIGHT : SKY_DAY;
 
@@ -306,13 +524,14 @@ export const Experience = ({ repos, user, isCinematic, setHoveredRepo, isNightMo
         makeDefault
         target={[0, 2, 0]}
         maxPolarAngle={Math.PI / 2.1}
-        minDistance={6}
+        // Low enough that the house-focus shot (~3.95 away) isn't pushed back.
+        minDistance={3}
         maxDistance={islandRadius * 6}
         enableDamping
         dampingFactor={0.05}
       />
 
-      <SoftShadows size={18} samples={8} focus={0} />
+      {QUALITY.softShadows && <SoftShadows size={18} samples={8} focus={0} />}
       {/* Night is deliberately dim: the street lamps are the light source now. */}
       <ambientLight
         intensity={isNightMode ? 0.1 : 1.4}
@@ -322,8 +541,8 @@ export const Experience = ({ repos, user, isCinematic, setHoveredRepo, isNightMo
         position={[islandRadius * 1.4, islandRadius * 2.2, islandRadius]}
         intensity={isNightMode ? 0.16 : 2.2}
         color={isNightMode ? '#4a5c8f' : '#ffedcc'}
-        castShadow
-        shadow-mapSize={[2048, 2048]}
+        castShadow={QUALITY.shadows}
+        shadow-mapSize={[QUALITY.shadowMapSize, QUALITY.shadowMapSize]}
         shadow-camera-near={0.5}
         shadow-camera-far={islandRadius * 8}
         shadow-camera-left={-islandRadius - 5}
@@ -362,22 +581,30 @@ export const Experience = ({ repos, user, isCinematic, setHoveredRepo, isNightMo
         {/* ── ONE COTTAGE PER REPO, IN CONCENTRIC QUADRANT RINGS ── */}
         <VillageQuadrants
           layout={layout}
+          props={props}
           handleBuildingClick={handleBuildingClick}
           setHoveredRepo={setHoveredRepo}
         />
 
+        {/* ── DECORATIVE SCENERY: water tower, windmill, wagons ── */}
+        <VillageProps props={props} />
+
         <SkyDecor islandRadius={islandRadius} />
+        <Birds islandRadius={islandRadius} />
+        {isNightMode && <NightSky islandRadius={islandRadius} />}
       </group>
 
-      <ContactShadows
-        position={[0, 0.005, 0]}
-        opacity={0.28}
-        scale={islandRadius * 2.5}
-        blur={2}
-        far={5}
-        resolution={1024}
-        frames={1}
-      />
+      {QUALITY.contactShadows && (
+        <ContactShadows
+          position={[0, 0.005, 0]}
+          opacity={0.28}
+          scale={islandRadius * 2.5}
+          blur={2}
+          far={5}
+          resolution={1024}
+          frames={1}
+        />
+      )}
     </>
   );
 };

@@ -2,29 +2,34 @@ import React, { useMemo } from 'react';
 import * as THREE from 'three';
 
 export const IslandBase = React.memo(({ radius = 10, depth = 3.5 }) => {
-  // Top grass disk geometry - low poly circular disk with slightly bumpy/organic vertex displacement
+  /**
+   * Top grass disk — organic outline, but a DEAD FLAT top surface.
+   *
+   * The top cap is a triangle fan from a single centre vertex out to the rim,
+   * so any vertical displacement of the rim tilts the whole surface. It used to
+   * get `sin(x*0.5)*cos(z*0.5)*0.15`, which lifted the ground up to +0.15 at the
+   * rim and, interpolated inward, put the grass ABOVE the flat ground decals:
+   * it swallowed ~25% of the moat water ring and ~30% of the ring road bed, and
+   * poked green triangles through the paving near the castle lamps.
+   *
+   * The organic silhouette comes from the horizontal rim perturbation below
+   * (and from the cliff underneath), which is kept.
+   */
   const topGrassGeo = useMemo(() => {
     const geo = new THREE.CylinderGeometry(radius, radius, 0.4, 32, 1);
     const pos = geo.attributes.position;
-    
-    // Seeded vertex perturbation for organic low-poly feel
+
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
-      const y = pos.getY(i);
       const z = pos.getZ(i);
 
-      // Perturb horizontal radius & top rim height slightly
+      // Wobble the outline in X/Z only — never in Y.
       const dist = Math.sqrt(x * x + z * z);
       if (dist > 0.1) {
         const angle = Math.atan2(z, x);
         const noise = Math.sin(angle * 7) * 0.4 + Math.cos(angle * 11) * 0.3 + Math.sin(angle * 3) * 0.5;
         pos.setX(i, x + (x / dist) * noise * 0.4);
         pos.setZ(i, z + (z / dist) * noise * 0.4);
-      }
-
-      if (y > 0) {
-        const heightNoise = Math.sin(x * 0.5) * Math.cos(z * 0.5) * 0.15;
-        pos.setY(i, y + heightNoise);
       }
     }
 

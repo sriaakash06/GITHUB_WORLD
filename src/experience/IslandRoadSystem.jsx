@@ -18,6 +18,7 @@ import {
   finalizeBatch,
   objectMatrix,
 } from './InstancedBatch';
+import { QUALITY } from './quality';
 
 // ── Cobblestone palette: warm grey / tan / beige, matching the village stonework ──
 const MORTAR = '#6d6357'; // packed earth showing between the stones
@@ -41,7 +42,7 @@ const LAMP_LIGHT = { color: '#ffcc66', intensity: 6, distance: 8, decay: 2 };
  * the castle's two torch lights keeps the night budget at 8 dynamic lights,
  * while all 20 lamps still glow via emissive + additive halo.
  */
-const MAX_NIGHT_LIGHTS = 6;
+const MAX_NIGHT_LIGHTS = QUALITY.maxPointLights;
 
 /** Cobble sizing. */
 const KERB_W = 0.17;
