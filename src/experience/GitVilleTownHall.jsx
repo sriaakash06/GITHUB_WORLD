@@ -12,6 +12,13 @@ import {
   BRIDGE_WIDTH,
 } from './VillageLayout';
 
+// Bridge stonework — same warm greys as the ring road's cobbles so the
+// crossings read as an extension of the paving rather than timber.
+const BRIDGE_DECK = '#b6a992';
+const BRIDGE_SLAB_A = '#a89b88';
+const BRIDGE_SLAB_B = '#9b9082';
+const BRIDGE_RAIL = '#7d746a';
+
 // ═══════════════════════════════════════════════════════════════
 // SUB-COMPONENTS
 // ═══════════════════════════════════════════════════════════════
@@ -327,37 +334,41 @@ export const MoatWaterRing = ({ innerRadius = 1.95, outerRadius = 3.45 }) => (
 // ─────────────────────────────────────────────
 export const PlankBridge = ({ position, rotation = [0, 0, 0], length = 1.6, width = 0.5 }) => (
   <group position={position} rotation={rotation}>
-    {/* Bridge deck */}
+    {/* Bridge deck — stone, matching the ring road's cobble palette */}
     <mesh position={[0, 0.04, 0]} castShadow receiveShadow>
       <boxGeometry args={[width, 0.06, length]} />
-      <meshStandardMaterial color="#8B5A2B" roughness={0.85} flatShading />
+      <meshStandardMaterial color={BRIDGE_DECK} roughness={0.9} flatShading />
     </mesh>
 
-    {/* Individual wood planks */}
+    {/* Individual paving slabs across the span */}
     {Array.from({ length: 6 }).map((_, i) => {
       const zPos = -length / 2 + (i + 0.5) * (length / 6);
       return (
-        <mesh key={`plank-${i}`} position={[0, 0.075, zPos]} castShadow>
+        <mesh key={`slab-${i}`} position={[0, 0.075, zPos]} castShadow receiveShadow>
           <boxGeometry args={[width * 0.95, 0.02, length / 7]} />
-          <meshStandardMaterial color="#6E441B" roughness={0.9} flatShading />
+          <meshStandardMaterial
+            color={i % 2 === 0 ? BRIDGE_SLAB_A : BRIDGE_SLAB_B}
+            roughness={0.9}
+            flatShading
+          />
         </mesh>
       );
     })}
 
-    {/* Rail posts & side rails */}
+    {/* Rail posts & side rails — darker stone */}
     {[-width / 2 + 0.03, width / 2 - 0.03].map((xSide, sideIdx) => (
       <group key={`side-rail-${sideIdx}`}>
         {/* Posts */}
         {[-length / 2.2, 0, length / 2.2].map((zPos, postIdx) => (
           <mesh key={`post-${postIdx}`} position={[xSide, 0.18, zPos]} castShadow>
-            <cylinderGeometry args={[0.02, 0.02, 0.3, 6]} />
-            <meshStandardMaterial color="#4A2E11" flatShading />
+            <boxGeometry args={[0.05, 0.3, 0.05]} />
+            <meshStandardMaterial color={BRIDGE_RAIL} roughness={0.9} flatShading />
           </mesh>
         ))}
         {/* Top handrail */}
         <mesh position={[xSide, 0.3, 0]} castShadow>
-          <boxGeometry args={[0.03, 0.03, length]} />
-          <meshStandardMaterial color="#4A2E11" flatShading />
+          <boxGeometry args={[0.045, 0.035, length]} />
+          <meshStandardMaterial color={BRIDGE_RAIL} roughness={0.9} flatShading />
         </mesh>
       </group>
     ))}
@@ -508,6 +519,57 @@ export default function GitVilleTownHall({ position = [0, 0, 0], username, isNig
           height={3.2}
           depth={0.5}
         />
+
+        {/* ── OUTER GATEHOUSE ──
+            midAngles[1] (the +Z side) is deliberately skipped in the wall loop
+            above and replaced by two split walls plus the pillars below. That
+            left a bare 2.9-wide hole reading as a missing wall, so the opening
+            now gets a real gate: stone lintel, arched head and two timber
+            leaves with iron banding. */}
+        <group position={[0, 0.5, outerRm]}>
+          {/* Lintel spanning the pillars, with a crenellated cap */}
+          <mesh position={[0, 3.75, 0]} castShadow receiveShadow>
+            <boxGeometry args={[3.7, 0.55, 0.75]} />
+            <meshStandardMaterial color={PALETTE.stone} roughness={0.85} flatShading />
+          </mesh>
+          {[-1.1, 0, 1.1].map((x) => (
+            <mesh key={`gate-merlon-${x}`} position={[x, 4.28, 0]} castShadow>
+              <boxGeometry args={[0.55, 0.5, 0.6]} />
+              <meshStandardMaterial color={PALETTE.stoneDark} roughness={0.9} flatShading />
+            </mesh>
+          ))}
+
+          {/* Arched head behind the doors so the opening has depth */}
+          <Arch position={[0, 0, -0.05]} width={2.5} height={3.4} depth={0.85} />
+
+          {/* Two timber leaves closing the span */}
+          {[-1, 1].map((side) => (
+            <group key={`gate-leaf-${side}`} position={[side * 0.72, 0, 0.16]}>
+              <mesh position={[0, 1.55, 0]} castShadow receiveShadow>
+                <boxGeometry args={[1.4, 3.1, 0.22]} />
+                <meshStandardMaterial color="#5a3f29" roughness={0.9} flatShading />
+              </mesh>
+              {/* Vertical planking */}
+              {[-0.45, -0.15, 0.15, 0.45].map((px) => (
+                <mesh key={`plank-${px}`} position={[px, 1.55, 0.13]} castShadow>
+                  <boxGeometry args={[0.26, 3.0, 0.06]} />
+                  <meshStandardMaterial color="#6b4a2f" roughness={0.9} flatShading />
+                </mesh>
+              ))}
+              {/* Iron bands + ring handle */}
+              {[0.75, 2.35].map((by) => (
+                <mesh key={`band-${by}`} position={[0, by, 0.19]} castShadow>
+                  <boxGeometry args={[1.34, 0.18, 0.07]} />
+                  <meshStandardMaterial color="#3f4247" roughness={0.5} metalness={0.6} flatShading />
+                </mesh>
+              ))}
+              <mesh position={[-side * 0.5, 1.55, 0.24]} castShadow>
+                <sphereGeometry args={[0.13, 6, 5]} />
+                <meshStandardMaterial color="#3f4247" roughness={0.45} metalness={0.6} flatShading />
+              </mesh>
+            </group>
+          ))}
+        </group>
 
         {/* Gateway pillars at front entrance */}
         {[-1.45, 1.45].map((x, idx) => (

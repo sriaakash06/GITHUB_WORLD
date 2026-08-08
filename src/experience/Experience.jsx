@@ -290,22 +290,51 @@ const Birds = React.memo(function Birds({ islandRadius }) {
 // ─────────────────────────────────────────────
 // NIGHT SKY — moon + starfield
 // ─────────────────────────────────────────────
+/**
+ * The camera can only ever see a thin strip of sky. The default view looks
+ * DOWN 29.8° with a 19° half-FOV, so the top of the frame sits 10.8° BELOW the
+ * horizon — no sky at all — and even orbiting to `maxPolarAngle` only lifts the
+ * top edge to about +14.7° of elevation.
+ *
+ * The moon and stars therefore have to live in a low band just above the
+ * horizon. The previous moon sat at 38° elevation, permanently off-screen.
+ */
+/**
+ * The default camera looks DOWN 29.8° with a 19° half-FOV, so the frame spans
+ * elevations −48.8°..−10.8° — the horizon itself is 10.8° ABOVE the top edge.
+ * Anything placed at a positive elevation is off-screen, which is why the moon
+ * at +9° (and +38° before that) was never visible.
+ *
+ * But the island's far rim only reaches −23.4° in that frame, so the band from
+ * −23.4° up to −10.8° is empty background — about a third of the frame height.
+ * That strip reads as sky, and on a floating island it genuinely is: put the
+ * moon there and it clears the terrain silhouette while sitting in open sky.
+ */
+const MOON_ELEVATION_DEG = -17;
+const MOON_AZIMUTH_DEG = 225; // toward −X/−Z, the half the default camera faces
+/** Stars span the default frame's empty band and keep going up, so they still
+ *  read once the camera is orbited toward the horizon. */
+const STAR_ELEVATION_MIN = -30;
+const STAR_ELEVATION_MAX = 18;
+
 const NightSky = React.memo(function NightSky({ islandRadius }) {
   const stars = useMemo(() => {
     const n = QUALITY.starCount;
-    const r = islandRadius * 6;
     const pos = new Float32Array(n * 3);
     const seed = (v) => Math.abs(Math.sin(v * 12.9898 + 78.233) * 43758.5453) % 1;
 
     for (let i = 0; i < n; i++) {
-      // Even-ish spread over the upper dome.
-      const u = seed(i * 3 + 1);
-      const phi = Math.acos(1 - 0.92 * seed(i * 3 + 2)); // bias away from the horizon
-      const theta = u * Math.PI * 2;
-      const d = r * (0.85 + seed(i * 3 + 3) * 0.3);
-      pos[i * 3] = Math.sin(phi) * Math.cos(theta) * d;
-      pos[i * 3 + 1] = Math.cos(phi) * d;
-      pos[i * 3 + 2] = Math.sin(phi) * Math.sin(theta) * d;
+      const theta = seed(i * 3 + 1) * Math.PI * 2;
+      const elev =
+        (STAR_ELEVATION_MIN +
+          seed(i * 3 + 2) * (STAR_ELEVATION_MAX - STAR_ELEVATION_MIN)) *
+        (Math.PI / 180);
+      // Far enough out that the island never intersects them; depth testing
+      // still lets the terrain occlude the ones behind it, which looks right.
+      const d = islandRadius * (6 + seed(i * 3 + 3) * 3);
+      pos[i * 3] = Math.cos(elev) * Math.cos(theta) * d;
+      pos[i * 3 + 1] = Math.sin(elev) * d;
+      pos[i * 3 + 2] = Math.cos(elev) * Math.sin(theta) * d;
     }
 
     const geo = new THREE.BufferGeometry();
@@ -313,36 +342,49 @@ const NightSky = React.memo(function NightSky({ islandRadius }) {
     return geo;
   }, [islandRadius]);
 
-  const moonPos = useMemo(
-    () => [-islandRadius * 1.5, islandRadius * 1.9, -islandRadius * 1.9],
-    [islandRadius]
-  );
+  const moonPos = useMemo(() => {
+    const elev = MOON_ELEVATION_DEG * (Math.PI / 180);
+    const az = MOON_AZIMUTH_DEG * (Math.PI / 180);
+    const d = islandRadius * 7;
+    return [
+      Math.cos(elev) * Math.cos(az) * d,
+      Math.sin(elev) * d,
+      Math.cos(elev) * Math.sin(az) * d,
+    ];
+  }, [islandRadius]);
 
   return (
     <group>
       {/* Moon — emissive so it stays bright under the dimmed night lighting,
           and unlit/unfogged so distance doesn't wash it out. */}
-      <mesh position={moonPos}>
-        <sphereGeometry args={[islandRadius * 0.16, 14, 10]} />
-        <meshStandardMaterial
-          color="#fdf6d8"
-          emissive="#f7ecc0"
-          emissiveIntensity={1.5}
-          roughness={1}
-          flatShading
+      <mesh position={moonPos} frustumCulled={false}>
+        <sphereGeometry args={[islandRadius * 0.22, 16, 12]} />
+        <meshBasicMaterial color="#fdf6d8" fog={false} toneMapped={false} />
+      </mesh>
+      {/* Soft halo so it doesn't read as a flat disc. */}
+      <mesh position={moonPos} frustumCulled={false}>
+        <sphereGeometry args={[islandRadius * 0.34, 14, 10]} />
+        <meshBasicMaterial
+          color="#f2e6b4"
+          transparent
+          opacity={0.16}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
           fog={false}
           toneMapped={false}
         />
       </mesh>
 
-      {/* Starfield. Points are one draw call and no lighting work. */}
+      {/* Starfield — one draw call, no lighting work.
+          sizeAttenuation is OFF: with it on, `size` is in world units and a
+          star 150 units away shrank to ~2px. Off, `size` is a pixel count. */}
       <points geometry={stars} frustumCulled={false}>
         <pointsMaterial
-          size={islandRadius * 0.035}
-          sizeAttenuation
+          size={2.6}
+          sizeAttenuation={false}
           color="#ffffff"
           transparent
-          opacity={0.85}
+          opacity={0.9}
           depthWrite={false}
           fog={false}
           toneMapped={false}
@@ -573,7 +615,12 @@ export const Experience = ({
         <IslandBase radius={islandRadius} depth={3.8} />
 
         {/* ── RING ROAD + 4 SPOKE ROADS + STREET LAMPS ── */}
-        <IslandRoadSystem isNightMode={isNightMode} islandRadius={islandRadius} />
+        <IslandRoadSystem
+          isNightMode={isNightMode}
+          islandRadius={islandRadius}
+          layout={layout}
+          props={props}
+        />
 
         {/* ── CENTRAL CASTLE, MOAT & BRIDGES ── */}
         <GitVilleTownHall position={[0, 0, 0]} username={user?.username} isNightMode={isNightMode} />

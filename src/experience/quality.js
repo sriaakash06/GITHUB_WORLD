@@ -53,7 +53,7 @@ export const QUALITY = IS_LOW_POWER
       shadowMapSize: 2048,
       softShadows: true,
       contactShadows: true,
-      maxPointLights: 6,
+      maxPointLights: 36, // road lamps + cluster lamps — see IslandRoadSystem
       castleTorchLights: true,
       sphereSegments: [6, 4],
       radialSegments: 6,

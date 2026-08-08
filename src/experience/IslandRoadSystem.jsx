@@ -30,17 +30,17 @@ const LAMP_METAL = '#3a3d40';
 const BULB_LOCAL = [0.29, 1.76, 0];
 /**
  * Renderer runs with physically-correct lighting (three r157 defaults
- * `useLegacyLights` to false), so point-light intensity is candela and falls off
- * as 1/d². A lamp bulb 1.76 above the road needs ~6 here to read as a warm pool,
- * not the ~1 that a legacy-lit scene would want.
+ * `useLegacyLights` to false), so intensity is candela and falls off as 1/d².
+ * At the 1.76 bulb height that means a value near 1 lands at ~0.3 of a unit on
+ * the road under it — invisible against ambient. ~5.5 is what actually reads.
  */
-const LAMP_LIGHT = { color: '#ffcc66', intensity: 6, distance: 8, decay: 2 };
+const LAMP_LIGHT = { color: '#ffcc66', intensity: 5.5, distance: 7.5, decay: 2 };
 /**
- * Hard ceiling on lamp point lights. There are 20 lamps; giving each one a real
- * light would compile every lit material in the scene against NUM_POINT_LIGHTS=20
- * and loop 20× per fragment, which undoes the instancing work. Six pools plus
- * the castle's two torch lights keeps the night budget at 8 dynamic lights,
- * while all 20 lamps still glow via emissive + additive halo.
+ * Every lamp now carries its own light at night (was capped at 6, which is why
+ * only the ring-road lamps by the castle had pools — those were the 6 that made
+ * the cut). The cost is real: NUM_POINT_LIGHTS goes 6 → 20, so every lit
+ * fragment in the scene loops 20 times. Mobile stays at 0 and relies on the
+ * emissive bulb + halo instead.
  */
 const MAX_NIGHT_LIGHTS = QUALITY.maxPointLights;
 
@@ -68,6 +68,8 @@ const rand = (n) => {
 export const IslandRoadSystem = React.memo(function IslandRoadSystem({
   isNightMode,
   islandRadius,
+  layout,
+  props: propList = [],
 }) {
   const spokeStart = RING_ROAD_CENTER_R;
   const spokeEnd = islandRadius - 0.8;
@@ -86,8 +88,7 @@ export const IslandRoadSystem = React.memo(function IslandRoadSystem({
         x: Math.cos(angle) * r,
         z: Math.sin(angle) * r,
         rotY: -angle + Math.PI,
-        // Every other one carries a real light so the pools stay spread out.
-        lit: i % 2 === 0,
+        lit: true,
       });
     }
 
@@ -107,10 +108,38 @@ export const IslandRoadSystem = React.memo(function IslandRoadSystem({
           x: dx * dist + offX,
           z: dz * dist + offZ,
           rotY: Math.atan2(-offX, -offZ),
-          lit: i === 0,
+          lit: true,
         });
       }
     });
+
+    // ── Cluster lamps: one in the grass gap inside each quadrant's ring of
+    //    houses, so the house areas light up too, not just the roads. Houses in
+    //    a quadrant ring sit at quadStart + step*(1..n); the gap between the
+    //    first two is at step*1.5 and is at least 3 units wide by construction.
+    if (layout?.ringRadii?.length) {
+      const { ringRadii, perQuadrant } = layout;
+      for (let ring = 0; ring < ringRadii.length; ring++) {
+        for (let q = 0; q < 4; q++) {
+          const inRing = Math.min(3, Math.max(0, (perQuadrant[q] || 0) - ring * 3));
+          if (inRing <= 0) continue;
+
+          const step = Math.PI / 2 / (inRing + 1);
+          const angle = q * (Math.PI / 2) + step * 1.5;
+          const r = ringRadii[ring];
+          const x = Math.cos(angle) * r;
+          const z = Math.sin(angle) * r;
+
+          // Don't drop one on top of a water tower / windmill / stall.
+          const clash = propList.some(
+            (p) => Math.hypot(x - p.position[0], z - p.position[2]) < p.clearRadius + 0.4
+          );
+          if (clash) continue;
+
+          posts.push({ x, z, rotY: Math.atan2(-x, -z), lit: true, cluster: true });
+        }
+      }
+    }
 
     const structure = createBatch();
     const poles = createBatch();
@@ -133,8 +162,8 @@ export const IslandRoadSystem = React.memo(function IslandRoadSystem({
       addParts(poles, [{ p: [0, 0.95, 0], s: [0.08, 1.9, 0.08], c: LAMP_METAL }], parent);
       // White instance colour: InstancedMesh multiplies it into material.color,
       // so the bulb/halo tint must come from the material alone.
-      addParts(glow, [{ p: BULB_LOCAL, s: [0.19, 0.19, 0.19], c: '#ffffff' }], parent);
-      addParts(halo, [{ p: BULB_LOCAL, s: [0.62, 0.62, 0.62], c: '#ffffff' }], parent);
+      addParts(glow, [{ p: BULB_LOCAL, s: [0.24, 0.24, 0.24], c: '#ffffff' }], parent);
+      addParts(halo, [{ p: BULB_LOCAL, s: [0.88, 0.88, 0.88], c: '#ffffff' }], parent);
 
       // World-space bulb position for the point light: local +X maps to
       // (cos rotY, −sin rotY) in world X/Z.
@@ -153,7 +182,7 @@ export const IslandRoadSystem = React.memo(function IslandRoadSystem({
       total: posts.length,
       lights: posts.filter((p) => p.lit).slice(0, MAX_NIGHT_LIGHTS),
     };
-  }, [spokeStart, spokeEnd, spokeLength]);
+  }, [spokeStart, spokeEnd, spokeLength, layout, propList]);
 
   // ── Every cobble on every road, in one instanced draw call ──
   const paving = useMemo(() => {
@@ -263,9 +292,12 @@ export const IslandRoadSystem = React.memo(function IslandRoadSystem({
       new THREE.MeshStandardMaterial({
         color: isNightMode ? '#fff3cc' : '#cfd4d8',
         emissive: new THREE.Color(isNightMode ? '#ffb43c' : '#000000'),
-        emissiveIntensity: isNightMode ? 1.9 : 0,
+        emissiveIntensity: isNightMode ? 2.4 : 0,
         roughness: 0.35,
         flatShading: true,
+        // The renderer uses ACES tone mapping, which was pulling the bulb back
+        // down to roughly wall-white. Opting out is what makes it read as lit.
+        toneMapped: false,
       }),
     [isNightMode]
   );
@@ -276,7 +308,7 @@ export const IslandRoadSystem = React.memo(function IslandRoadSystem({
       new THREE.MeshBasicMaterial({
         color: '#ffc861',
         transparent: true,
-        opacity: 0.18,
+        opacity: 0.34,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
         toneMapped: false,
@@ -287,7 +319,7 @@ export const IslandRoadSystem = React.memo(function IslandRoadSystem({
   if (import.meta.env.DEV) {
     // eslint-disable-next-line no-console
     console.log(
-      `[GitVille] ${lamps.total} street lamps, ${isNightMode ? lamps.lights.length : 0} point lights active ` +
+      `[GitVille] ${lamps.total} lamps (road + house clusters), ${isNightMode ? lamps.lights.length : 0} point lights active ` +
         `(${isNightMode ? 'night' : 'day'}), ${paving.count} cobbles in 1 draw call.`
     );
   }
