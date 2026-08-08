@@ -1,3 +1,8 @@
+// Sky/fog colours — shared by the Canvas background and the scene fog so the
+// horizon never seams. Night is deep enough that lit street lamps read clearly.
+export const SKY_DAY = '#93d8f5';
+export const SKY_NIGHT = '#070C1A';
+
 export const PALETTE = {
     // Terrain
     grass:      ['#8ade5d', '#7ad64d', '#9af26e'],

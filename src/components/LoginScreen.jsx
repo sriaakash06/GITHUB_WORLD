@@ -1,11 +1,40 @@
 import React, { useState } from 'react';
 
-export function LoginScreen({ onLogin }) {
+/** GitHub's own rule: 1–39 chars, alphanumeric or single hyphens, no edge hyphen. */
+const GITHUB_USERNAME = /^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/;
+
+/**
+ * Accepts a bare username, an @handle, or a pasted profile URL and returns
+ * just the username.
+ */
+export function normalizeUsername(raw) {
+  return raw
+    .trim()
+    .replace(/^@/, '')
+    .replace(/^https?:\/\/(www\.)?github\.com\//i, '')
+    .replace(/[/?#].*$/, '')
+    .trim();
+}
+
+export function LoginScreen({ onSubmit }) {
   const [username, setUsername] = useState('');
+  const [problem, setProblem] = useState('');
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (username.trim()) onLogin(username.trim());
+    const clean = normalizeUsername(username);
+
+    if (!clean) {
+      setProblem('Enter a GitHub username to build your world.');
+      return;
+    }
+    if (!GITHUB_USERNAME.test(clean)) {
+      setProblem(`“${clean}” isn't a valid GitHub username.`);
+      return;
+    }
+
+    setProblem('');
+    onSubmit(clean);
   };
 
   return (
@@ -20,17 +49,26 @@ export function LoginScreen({ onLogin }) {
             <input
               type="text"
               id="username"
-              placeholder="GitHub Username"
+              placeholder="Enter your GitHub username"
               required
               autoComplete="off"
+              autoCapitalize="off"
+              spellCheck="false"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={(e) => {
+                setUsername(e.target.value);
+                if (problem) setProblem('');
+              }}
             />
           </div>
-          <button type="submit" id="enter-btn">Enter Your Village →</button>
+          <button type="submit" id="enter-btn">Generate My World →</button>
         </form>
 
-        <p className="login-hint">Each repository becomes a unique house in your village.</p>
+        {problem && <p className="login-error">{problem}</p>}
+
+        <p className="login-hint">
+          Each repository becomes a unique house in your village — and you get a link you can share.
+        </p>
       </div>
     </div>
   );

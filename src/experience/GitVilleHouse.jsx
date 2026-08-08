@@ -1,532 +1,312 @@
-import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { useFrame } from '@react-three/fiber';
-import { PALETTE } from './Constants';
+import { PLOT_W, PLOT_D, PLOT_H } from './VillageLayout';
 
-// Detailed Clay Shingled Roof using overlapping boxes on a prism base
-const ShingledRoof = ({ width, depth, height, color }) => {
-  const slopeAngle = Math.atan(height / (width / 2));
-  const slopeLength = Math.sqrt(height * height + (width / 2) * (width / 2));
-  
-  // Base roof prism
-  const baseGeo = useMemo(() => {
-    const shape = new THREE.Shape();
-    shape.moveTo(-width / 2, 0);
-    shape.lineTo(width / 2, 0);
-    shape.lineTo(0, height);
-    shape.lineTo(-width / 2, 0);
-    const geo = new THREE.ExtrudeGeometry(shape, { steps: 1, depth, bevelEnabled: false });
-    geo.translate(0, 0, -depth / 2);
-    return geo;
-  }, [width, depth, height]);
+/**
+ * ═══════════════════════════════════════════════════════════════════
+ * GITVILLE COTTAGE  (Fix 5)
+ * ═══════════════════════════════════════════════════════════════════
+ * A low single-storey stone-and-wood cottage, NOT a tower. This module
+ * emits plain part descriptors instead of JSX so every repeated element
+ * (roof tiles, stone blocks, fence posts, planks) can be merged into
+ * shared InstancedMeshes across the whole village — see InstancedBatch.
+ *
+ * Local space: origin at the centre of the garden plot, y = 0 on the grass,
+ * and the front door on the +Z face (which the placement code rotates to
+ * face the castle).
+ */
 
-  // Generate overlapping shingle overlays
-  const shingleRows = 4;
-  const shingles = useMemo(() => {
-    const list = [];
-    for (let side = -1; side <= 1; side += 2) {
-      for (let r = 0; r < shingleRows; r++) {
-        // position along slope from bottom (0.1) to top (0.9)
-        const t = (r + 0.25) / shingleRows;
-        const dist = t * slopeLength;
-        
-        const sx = side * dist * Math.cos(slopeAngle);
-        const sy = dist * Math.sin(slopeAngle);
-        
-        // 4 shingles along depth
-        const shingleDepth = depth / 4;
-        for (let dIdx = 0; dIdx < 4; dIdx++) {
-          const sz = -depth / 2 + (dIdx + 0.5) * shingleDepth;
-          list.push({
-            key: `${side}-${r}-${dIdx}`,
-            position: [sx, sy, sz],
-            rotation: [0, 0, -side * slopeAngle],
-            args: [0.35, 0.05, shingleDepth * 0.92]
-          });
-        }
+// ── Proportions ──────────────────────────────────────────────────
+// The old house stacked 1–3 floors of 0.85 on a 1.05 base, so walls ran
+// 1.05–2.75 tall on a ~2.6 wide box: a narrow tower. It is now a single
+// storey at 1.05, on a slightly wider footprint.
+const WALL_H = 1.05;
+const ROOF_H = 0.55; // 32% of wall + fascia + roof — prominent, not oversized
+const FASCIA_H = 0.12;
+const EAVE = 0.24;
+/** The cottage sits toward the back of its plot, leaving a front garden.
+ *  Tuned so even the widest style's rear eave stays inside the plot box that
+ *  the placement solver spaces houses by. */
+const SHIFT_Z = -0.3;
+
+export const COTTAGE_HEIGHT = PLOT_H + WALL_H + FASCIA_H + ROOF_H; // 1.94
+/** Ridge height plus the chimney — used for the hover/click proxy volume. */
+export const COTTAGE_PICK_HEIGHT = COTTAGE_HEIGHT + 0.22;
+
+// ── Palettes ─────────────────────────────────────────────────────
+const WALL_COLORS = ['#efe6d8', '#e7dccd', '#e3e1d9', '#eadfcd'];
+const STONE_COLORS = ['#8d867a', '#a89c88', '#7a736a', '#9b8f7e', '#6f6a62'];
+const PLANK_COLORS = ['#7a4a1c', '#8a5622', '#6d4018'];
+const FLOWER_COLORS = ['#e4574c', '#f2b134', '#e26aa8'];
+const TIMBER = '#5a3f29';
+const TIMBER_DARK = '#43301d';
+
+const _c = new THREE.Color();
+const shade = (hex, mul) => '#' + _c.set(hex).multiplyScalar(mul).getHexString();
+
+/**
+ * Builds one cottage.
+ * @returns part lists keyed by the instanced batch they belong to.
+ */
+export function buildCottage({ style = 0, roofColor = '#c0603f' } = {}) {
+  const s = Math.abs(style | 0);
+
+  const box = [];
+  const glass = [];
+  const metal = [];
+  const cyl = [];
+  const cone = [];
+  const sphere = [];
+
+  const wallW = 3.05 + (s % 2) * 0.18;
+  const wallD = 2.6 + ((s + 1) % 2) * 0.18;
+  const wallColor = WALL_COLORS[s % WALL_COLORS.length];
+
+  const wallY0 = PLOT_H;
+  const wallCY = wallY0 + WALL_H / 2;
+  const frontZ = SHIFT_Z + wallD / 2;
+  const backZ = SHIFT_Z - wallD / 2;
+
+  // ── Garden plot & lawn ──────────────────────────────────────────
+  box.push({ p: [0, PLOT_H / 2, 0], s: [PLOT_W, PLOT_H, PLOT_D], c: '#8b7f6d' });
+  box.push({
+    p: [0, PLOT_H + 0.02, 0],
+    s: [PLOT_W - 0.14, 0.04, PLOT_D - 0.14],
+    c: '#5aa347',
+  });
+
+  // ── Cottage box ─────────────────────────────────────────────────
+  box.push({ p: [0, wallCY, SHIFT_Z], s: [wallW, WALL_H, wallD], c: wallColor });
+
+  // ── Stone-block course around the base of every wall ────────────
+  const bandH = WALL_H * 0.36;
+  const rows = 2;
+  const rowH = bandH / rows;
+  const blockH = rowH * 0.86;
+  const blockT = 0.055;
+  const stoneAt = (i, r, extra = 0) =>
+    STONE_COLORS[Math.abs(i * 3 + r * 5 + s + extra) % STONE_COLORS.length];
+
+  for (let r = 0; r < rows; r++) {
+    const y = wallY0 + (r + 0.5) * rowH;
+    const stagger = (r % 2) * 0.09;
+
+    const nX = Math.max(3, Math.floor((wallW - 0.1) / 0.42));
+    const stepX = (wallW - 0.12) / nX;
+    for (let i = 0; i < nX; i++) {
+      const x = -wallW / 2 + 0.06 + (i + 0.5) * stepX + stagger;
+      if (Math.abs(x) > wallW / 2 - 0.1) continue;
+      const bw = stepX * 0.84;
+      box.push({ p: [x, y, frontZ + blockT / 2], s: [bw, blockH, blockT], c: stoneAt(i, r) });
+      box.push({ p: [x, y, backZ - blockT / 2], s: [bw, blockH, blockT], c: stoneAt(i, r, 2) });
+    }
+
+    const nZ = Math.max(3, Math.floor((wallD - 0.1) / 0.42));
+    const stepZ = (wallD - 0.12) / nZ;
+    for (let i = 0; i < nZ; i++) {
+      const z = backZ + 0.06 + (i + 0.5) * stepZ + stagger;
+      if (Math.abs(z - SHIFT_Z) > wallD / 2 - 0.1) continue;
+      const bd = stepZ * 0.84;
+      box.push({ p: [-wallW / 2 - blockT / 2, y, z], s: [blockT, blockH, bd], c: stoneAt(i, r, 1) });
+      box.push({ p: [wallW / 2 + blockT / 2, y, z], s: [blockT, blockH, bd], c: stoneAt(i, r, 3) });
+    }
+  }
+
+  // ── Stone quoins up the two front corners ───────────────────────
+  const quoinStep = 0.19;
+  for (let q = 0; q < 8; q++) {
+    const y = wallY0 + (q + 0.5) * quoinStep;
+    if (y > wallY0 + WALL_H - 0.09) break;
+    const long = q % 2 === 0;
+    const qw = long ? 0.26 : 0.16;
+    const qd = long ? 0.16 : 0.26;
+    const color = STONE_COLORS[Math.abs(q * 7 + s + 1) % STONE_COLORS.length];
+    for (const sx of [-1, 1]) {
+      box.push({
+        p: [sx * (wallW / 2 - qw / 2 + 0.02), y, frontZ - qd / 2 + 0.03],
+        s: [qw + 0.05, quoinStep * 0.86, qd + 0.05],
+        c: color,
+      });
+    }
+  }
+
+  // ── Timber trim: rear corner posts + a band over the stone course ─
+  for (const sx of [-1, 1]) {
+    box.push({
+      p: [sx * (wallW / 2 - 0.05), wallCY, backZ + 0.05],
+      s: [0.1, WALL_H, 0.1],
+      c: TIMBER,
+    });
+  }
+  const bandY = wallY0 + bandH + 0.035;
+  box.push({ p: [0, bandY, frontZ + 0.025], s: [wallW + 0.04, 0.07, 0.05], c: TIMBER });
+  box.push({ p: [0, bandY, backZ - 0.025], s: [wallW + 0.04, 0.07, 0.05], c: TIMBER });
+  box.push({ p: [-wallW / 2 - 0.025, bandY, SHIFT_Z], s: [0.05, 0.07, wallD + 0.04], c: TIMBER });
+  box.push({ p: [wallW / 2 + 0.025, bandY, SHIFT_Z], s: [0.05, 0.07, wallD + 0.04], c: TIMBER });
+
+  // ── Peaked shingled roof ────────────────────────────────────────
+  box.push({
+    p: [0, wallY0 + WALL_H + FASCIA_H / 2, SHIFT_Z],
+    s: [wallW + 0.18, FASCIA_H, wallD + 0.18],
+    c: TIMBER,
+  });
+
+  const roofBaseY = wallY0 + WALL_H + FASCIA_H;
+  const roofW = wallW + EAVE * 2;
+  const roofD = wallD + EAVE * 2;
+  const halfW = roofW / 2;
+  const slope = Math.hypot(halfW, ROOF_H);
+  const panelT = 0.085;
+
+  const tileColors = [
+    roofColor,
+    shade(roofColor, 0.87),
+    shade(roofColor, 1.12),
+    shade(roofColor, 0.96),
+  ];
+  const ridgeColor = shade(roofColor, 0.78);
+
+  for (const side of [-1, 1]) {
+    // Panel runs from the ridge at [0, ROOF_H] down to the eave at [side*halfW, 0].
+    const ang = Math.atan2(ROOF_H, -side * halfW);
+    const ca = Math.cos(ang);
+    const sa = Math.sin(ang);
+    const cx = (side * halfW) / 2;
+    const cy = roofBaseY + ROOF_H / 2;
+
+    box.push({
+      p: [cx, cy, SHIFT_Z],
+      r: [0, 0, ang],
+      s: [slope, panelT, roofD],
+      c: ridgeColor,
+    });
+
+    // Overlapping tiles, laid in horizontal rows down the slope.
+    const tileRows = 4;
+    const tileCols = Math.max(6, Math.round(roofD / 0.42));
+    const rowLen = slope / tileRows;
+    const colLen = roofD / tileCols;
+
+    for (let r = 0; r < tileRows; r++) {
+      const lx = -slope / 2 + (r + 0.5) * rowLen;
+      const ly = panelT / 2 + 0.014;
+      for (let t = 0; t < tileCols; t++) {
+        const lz = -roofD / 2 + (t + 0.5 + (r % 2) * 0.22) * colLen;
+        if (Math.abs(lz) > roofD / 2 - colLen * 0.12) continue;
+        box.push({
+          // rotate the tile's (x, y) offset into the panel's slope
+          p: [cx + lx * ca - ly * sa, cy + lx * sa + ly * ca, SHIFT_Z + lz],
+          r: [0, 0, ang],
+          s: [rowLen * 1.26, 0.03, colLen * 0.9],
+          c: tileColors[Math.abs(r * 3 + t * 5) % tileColors.length],
+        });
       }
     }
-    return list;
-  }, [width, depth, height, slopeAngle, slopeLength]);
+  }
 
-  return (
-    <group>
-      <mesh castShadow receiveShadow geometry={baseGeo}>
-        <meshStandardMaterial color={color} roughness={0.75} flatShading />
-      </mesh>
-      {shingles.map((s) => (
-        <mesh key={s.key} position={s.position} rotation={s.rotation} castShadow>
-          <boxGeometry args={s.args} />
-          <meshStandardMaterial color={color} roughness={0.8} flatShading />
-        </mesh>
-      ))}
-    </group>
-  );
-};
-
-// Corner vertical posts and cross beams for half-timbered styling
-const TimberBeams = ({ w, h, d }) => {
-  const beamColor = '#5a3f29'; // Rustic dark brown wood
-  const thickness = 0.04;
-  const beamW = 0.07;
-  
-  const diagL_side = Math.sqrt(d * d + h * h);
-  const diagAngle_side = Math.atan(h / d);
-  const diagL_back = Math.sqrt(w * w + h * h);
-  const diagAngle_back = Math.atan(h / w);
-  
-  return (
-    <group>
-      {/* Corner vertical posts */}
-      {[-w/2, w/2].map((x) => 
-        [-d/2, d/2].map((z) => (
-          <mesh key={`v-${x}-${z}`} position={[x, h/2, z]} castShadow>
-            <boxGeometry args={[beamW, h, beamW]} />
-            <meshStandardMaterial color={beamColor} roughness={0.9} flatShading />
-          </mesh>
-        ))
-      )}
-      
-      {/* Front face framing */}
-      <group position={[0, 0, d/2 + 0.005]}>
-        <mesh position={[0, beamW/2, 0]} castShadow>
-          <boxGeometry args={[w, beamW, thickness]} />
-          <meshStandardMaterial color={beamColor} roughness={0.9} />
-        </mesh>
-        <mesh position={[0, h - beamW/2, 0]} castShadow>
-          <boxGeometry args={[w, beamW, thickness]} />
-          <meshStandardMaterial color={beamColor} roughness={0.9} />
-        </mesh>
-      </group>
-
-      {/* Back face framing & diagonal cross brace */}
-      <group position={[0, 0, -d/2 - 0.005]}>
-        <mesh position={[0, beamW/2, 0]} castShadow>
-          <boxGeometry args={[w, beamW, thickness]} />
-          <meshStandardMaterial color={beamColor} roughness={0.9} />
-        </mesh>
-        <mesh position={[0, h - beamW/2, 0]} castShadow>
-          <boxGeometry args={[w, beamW, thickness]} />
-          <meshStandardMaterial color={beamColor} roughness={0.9} />
-        </mesh>
-        <mesh position={[0, h/2, 0]} rotation={[0, 0, diagAngle_back]} castShadow>
-          <boxGeometry args={[diagL_back, beamW * 0.7, thickness]} />
-          <meshStandardMaterial color={beamColor} roughness={0.9} />
-        </mesh>
-        <mesh position={[0, h/2, 0]} rotation={[0, 0, -diagAngle_back]} castShadow>
-          <boxGeometry args={[diagL_back, beamW * 0.7, thickness]} />
-          <meshStandardMaterial color={beamColor} roughness={0.9} />
-        </mesh>
-      </group>
-
-      {/* Left face framing & X brace */}
-      <group position={[-w/2 - 0.005, 0, 0]} rotation={[0, Math.PI/2, 0]}>
-        <mesh position={[0, beamW/2, 0]} castShadow>
-          <boxGeometry args={[d, beamW, thickness]} />
-          <meshStandardMaterial color={beamColor} roughness={0.9} />
-        </mesh>
-        <mesh position={[0, h - beamW/2, 0]} castShadow>
-          <boxGeometry args={[d, beamW, thickness]} />
-          <meshStandardMaterial color={beamColor} roughness={0.9} />
-        </mesh>
-        <mesh position={[0, h/2, 0]} rotation={[0, 0, diagAngle_side]} castShadow>
-          <boxGeometry args={[diagL_side, beamW * 0.7, thickness]} />
-          <meshStandardMaterial color={beamColor} roughness={0.9} />
-        </mesh>
-        <mesh position={[0, h/2, 0]} rotation={[0, 0, -diagAngle_side]} castShadow>
-          <boxGeometry args={[diagL_side, beamW * 0.7, thickness]} />
-          <meshStandardMaterial color={beamColor} roughness={0.9} />
-        </mesh>
-      </group>
-
-      {/* Right face framing & X brace */}
-      <group position={[w/2 + 0.005, 0, 0]} rotation={[0, -Math.PI/2, 0]}>
-        <mesh position={[0, beamW/2, 0]} castShadow>
-          <boxGeometry args={[d, beamW, thickness]} />
-          <meshStandardMaterial color={beamColor} roughness={0.9} />
-        </mesh>
-        <mesh position={[0, h - beamW/2, 0]} castShadow>
-          <boxGeometry args={[d, beamW, thickness]} />
-          <meshStandardMaterial color={beamColor} roughness={0.9} />
-        </mesh>
-        <mesh position={[0, h/2, 0]} rotation={[0, 0, diagAngle_side]} castShadow>
-          <boxGeometry args={[diagL_side, beamW * 0.7, thickness]} />
-          <meshStandardMaterial color={beamColor} roughness={0.9} />
-        </mesh>
-        <mesh position={[0, h/2, 0]} rotation={[0, 0, -diagAngle_side]} castShadow>
-          <boxGeometry args={[diagL_side, beamW * 0.7, thickness]} />
-          <meshStandardMaterial color={beamColor} roughness={0.9} />
-        </mesh>
-      </group>
-    </group>
-  );
-};
-
-// Flower detail in garden
-const Flower = ({ position, color }) => (
-  <group position={position}>
-    <mesh position={[0, 0.08, 0]} castShadow>
-      <cylinderGeometry args={[0.015, 0.015, 0.16, 4]} />
-      <meshStandardMaterial color="#22c55e" roughness={0.9} />
-    </mesh>
-    <mesh position={[0, 0.16, 0]} castShadow>
-      <sphereGeometry args={[0.05, 5, 5]} />
-      <meshStandardMaterial color={color} roughness={0.5} />
-    </mesh>
-  </group>
-);
-
-// Mini Garden with fence, path, flowers, and bushes
-const MiniGarden = ({ baseW, baseD, wallW, wallD, shiftZ }) => {
-  const fenceColor = '#6e4f35';
-  const fenceHeight = 0.45;
-  const pathZStart = wallD / 2 + shiftZ + 0.1;
-  const pathZEnd = baseD / 2 - 0.05;
-
-  return (
-    <group>
-      {/* Green grass top base */}
-      <mesh position={[0, 0.155, 0]} receiveShadow>
-        <boxGeometry args={[baseW - 0.08, 0.01, baseD - 0.08]} />
-        <meshStandardMaterial color="#4f8a3c" roughness={0.9} flatShading />
-      </mesh>
-
-      {/* Stone pathway */}
-      {Array.from({ length: 4 }).map((_, i) => {
-        const t = i / 3;
-        const z = pathZStart + t * (pathZEnd - pathZStart);
-        return (
-          <mesh key={`path-${i}`} position={[0, 0.162, z]} receiveShadow>
-            <boxGeometry args={[0.55, 0.01, 0.28]} />
-            <meshStandardMaterial color={PALETTE.stone} roughness={0.9} flatShading />
-          </mesh>
-        );
-      })}
-
-      {/* Left Fence */}
-      <mesh position={[-baseW / 2 + 0.04, 0.16 + fenceHeight / 2, (shiftZ + baseD/2 - wallD/2)/2]} castShadow>
-        <boxGeometry args={[0.06, fenceHeight, baseD/2 - shiftZ + wallD/2]} />
-        <meshStandardMaterial color={fenceColor} roughness={0.95} />
-      </mesh>
-      {/* Right Fence */}
-      <mesh position={[baseW / 2 - 0.04, 0.16 + fenceHeight / 2, (shiftZ + baseD/2 - wallD/2)/2]} castShadow>
-        <boxGeometry args={[0.06, fenceHeight, baseD/2 - shiftZ + wallD/2]} />
-        <meshStandardMaterial color={fenceColor} roughness={0.95} />
-      </mesh>
-      {/* Front Fence - Left section */}
-      <mesh position={[-(baseW/4 + 0.28), 0.16 + fenceHeight / 2, baseD / 2 - 0.04]} castShadow>
-        <boxGeometry args={[baseW/2 - 0.56, fenceHeight, 0.06]} />
-        <meshStandardMaterial color={fenceColor} roughness={0.95} />
-      </mesh>
-      {/* Front Fence - Right section */}
-      <mesh position={[baseW/4 + 0.28, 0.16 + fenceHeight / 2, baseD / 2 - 0.04]} castShadow>
-        <boxGeometry args={[baseW/2 - 0.56, fenceHeight, 0.06]} />
-        <meshStandardMaterial color={fenceColor} roughness={0.95} />
-      </mesh>
-
-      {/* Flowers in yard */}
-      <Flower position={[-baseW / 2 + 0.35, 0.17, 0.7]} color="#ef4444" />
-      <Flower position={[-baseW / 2 + 0.55, 0.17, 1.05]} color="#ffb703" />
-      <Flower position={[baseW / 2 - 0.35, 0.17, 0.85]} color="#ec4899" />
-      <Flower position={[baseW / 2 - 0.55, 0.17, 1.15]} color="#3b82f6" />
-
-      {/* Small bushes */}
-      <mesh position={[baseW / 2 - 0.5, 0.32, 0.35]} castShadow>
-        <sphereGeometry args={[0.2, 6, 6]} />
-        <meshStandardMaterial color={PALETTE.foliageDark} roughness={0.9} flatShading />
-      </mesh>
-      <mesh position={[-baseW / 2 + 0.45, 0.28, 0.25]} castShadow>
-        <sphereGeometry args={[0.16, 6, 6]} />
-        <meshStandardMaterial color={PALETTE.foliage} roughness={0.9} flatShading />
-      </mesh>
-    </group>
-  );
-};
-
-// Animated Villager walking left/right
-const Villager = ({ startX = 0, startZ = 1.25, boundaryX = 1.0, speed = 0.4, color }) => {
-  const ref = useRef();
-  const leftLegRef = useRef();
-  const rightLegRef = useRef();
-
-  useFrame((state, delta) => {
-    if (!ref.current) return;
-    const time = state.clock.getElapsedTime();
-    const posX = startX + Math.sin(time * speed) * boundaryX;
-    
-    const dirX = Math.cos(time * speed);
-    ref.current.rotation.y = dirX >= 0 ? Math.PI / 2 : -Math.PI / 2;
-    
-    ref.current.position.x = posX;
-    ref.current.position.y = 0.4 + Math.abs(Math.sin(time * speed * 4)) * 0.05;
-    
-    if (leftLegRef.current && rightLegRef.current) {
-      leftLegRef.current.rotation.x = Math.sin(time * speed * 8) * 0.4;
-      rightLegRef.current.rotation.x = -Math.sin(time * speed * 8) * 0.4;
-    }
+  // Ridge cap is flush with the eaves — any overhang would poke out of the
+  // plot box that the placement solver spaces houses by.
+  box.push({
+    p: [0, roofBaseY + ROOF_H + 0.02, SHIFT_Z],
+    s: [0.16, 0.13, roofD],
+    c: ridgeColor,
   });
 
-  return (
-    <group ref={ref} position={[startX, 0.4, startZ]} scale={0.4}>
-      {/* Head */}
-      <mesh position={[0, 0.9, 0]} castShadow>
-        <sphereGeometry args={[0.2, 8, 8]} />
-        <meshStandardMaterial color="#fcd34d" roughness={0.8} />
-      </mesh>
-      {/* Straw Hat */}
-      <mesh position={[0, 1.04, 0]} castShadow>
-        <cylinderGeometry args={[0.3, 0.35, 0.04, 8]} />
-        <meshStandardMaterial color="#d97706" roughness={0.9} />
-      </mesh>
-      <mesh position={[0, 1.09, 0]} castShadow>
-        <sphereGeometry args={[0.15, 8, 8]} />
-        <meshStandardMaterial color="#d97706" roughness={0.9} />
-      </mesh>
-      {/* Body / Shirt */}
-      <mesh position={[0, 0.5, 0]} castShadow>
-        <cylinderGeometry args={[0.18, 0.22, 0.6, 8]} />
-        <meshStandardMaterial color={color} roughness={0.7} />
-      </mesh>
-      {/* Left Leg */}
-      <mesh ref={leftLegRef} position={[-0.08, 0.1, 0]} castShadow>
-        <boxGeometry args={[0.07, 0.3, 0.07]} />
-        <meshStandardMaterial color="#1e293b" />
-      </mesh>
-      {/* Right Leg */}
-      <mesh ref={rightLegRef} position={[0.08, 0.1, 0]} castShadow>
-        <boxGeometry args={[0.07, 0.3, 0.07]} />
-        <meshStandardMaterial color="#1e293b" />
-      </mesh>
-    </group>
-  );
-};
+  // ── Chimney ─────────────────────────────────────────────────────
+  const chX = wallW * 0.26;
+  const chZ = SHIFT_Z - wallD * 0.16;
+  const roofSurfaceY = roofBaseY + ROOF_H * (1 - chX / halfW);
+  box.push({ p: [chX, roofSurfaceY - 0.1, chZ], s: [0.3, 0.86, 0.3], c: '#9aa0a6' });
+  box.push({ p: [chX, roofSurfaceY + 0.37, chZ], s: [0.38, 0.09, 0.38], c: '#7d838a' });
 
-// Animated Villager walking front/back (Z-axis)
-const ZVillager = ({ startX = -0.5, startZ = 1.1, boundaryZ = 0.4, speed = 0.5, color }) => {
-  const ref = useRef();
-  const leftLegRef = useRef();
-  const rightLegRef = useRef();
-
-  useFrame((state, delta) => {
-    if (!ref.current) return;
-    const time = state.clock.getElapsedTime();
-    const posZ = startZ + Math.sin(time * speed) * boundaryZ;
-    
-    const dirZ = Math.cos(time * speed);
-    ref.current.rotation.y = dirZ >= 0 ? 0 : Math.PI;
-    
-    ref.current.position.z = posZ;
-    ref.current.position.y = 0.4 + Math.abs(Math.sin(time * speed * 4)) * 0.05;
-    
-    if (leftLegRef.current && rightLegRef.current) {
-      leftLegRef.current.rotation.x = Math.sin(time * speed * 8) * 0.4;
-      rightLegRef.current.rotation.x = -Math.sin(time * speed * 8) * 0.4;
-    }
+  // ── Plank door + single round knob ──────────────────────────────
+  const doorH = 0.86;
+  const doorW = 0.6;
+  box.push({
+    p: [0, wallY0 + doorH / 2, frontZ + 0.03],
+    s: [doorW + 0.09, doorH + 0.07, 0.05],
+    c: TIMBER_DARK,
+  });
+  [-0.19, 0, 0.19].forEach((px, i) => {
+    box.push({
+      p: [px, wallY0 + doorH / 2, frontZ + 0.07],
+      s: [0.175, doorH - 0.04, 0.04],
+      c: PLANK_COLORS[i % PLANK_COLORS.length],
+    });
+  });
+  metal.push({
+    p: [0.2, wallY0 + doorH * 0.47, frontZ + 0.11],
+    s: [0.075, 0.075, 0.075],
+    c: '#e0a635',
+  });
+  box.push({
+    p: [0, PLOT_H + 0.045, frontZ + 0.2],
+    s: [0.86, 0.09, 0.34],
+    c: '#9e968a',
   });
 
-  return (
-    <group ref={ref} position={[startX, 0.4, startZ]} scale={0.4}>
-      {/* Head */}
-      <mesh position={[0, 0.9, 0]} castShadow>
-        <sphereGeometry args={[0.2, 8, 8]} />
-        <meshStandardMaterial color="#fcd34d" roughness={0.8} />
-      </mesh>
-      {/* Straw Hat */}
-      <mesh position={[0, 1.04, 0]} castShadow>
-        <cylinderGeometry args={[0.3, 0.35, 0.04, 8]} />
-        <meshStandardMaterial color="#d97706" roughness={0.9} />
-      </mesh>
-      <mesh position={[0, 1.09, 0]} castShadow>
-        <sphereGeometry args={[0.15, 8, 8]} />
-        <meshStandardMaterial color="#d97706" roughness={0.9} />
-      </mesh>
-      {/* Body / Shirt */}
-      <mesh position={[0, 0.5, 0]} castShadow>
-        <cylinderGeometry args={[0.18, 0.22, 0.6, 8]} />
-        <meshStandardMaterial color={color} roughness={0.7} />
-      </mesh>
-      {/* Left Leg */}
-      <mesh ref={leftLegRef} position={[-0.08, 0.1, 0]} castShadow>
-        <boxGeometry args={[0.07, 0.3, 0.07]} />
-        <meshStandardMaterial color="#1e293b" />
-      </mesh>
-      {/* Right Leg */}
-      <mesh ref={rightLegRef} position={[0.08, 0.1, 0]} castShadow>
-        <boxGeometry args={[0.07, 0.3, 0.07]} />
-        <meshStandardMaterial color="#1e293b" />
-      </mesh>
-    </group>
-  );
-};
+  // ── Windows: two flanking the door, one on each side wall ───────
+  const addWindow = (x, y, z, rotY) => {
+    const cr = Math.cos(rotY);
+    const sr = Math.sin(rotY);
+    const at = (d) => [x + sr * d, y, z + cr * d];
+    box.push({ p: at(0.02), r: [0, rotY, 0], s: [0.52, 0.52, 0.05], c: TIMBER });
+    glass.push({ p: at(0.05), r: [0, rotY, 0], s: [0.4, 0.4, 0.04], c: '#9fe4f2' });
+    const sill = at(0.06);
+    box.push({
+      p: [sill[0], y - 0.3, sill[2]],
+      r: [0, rotY, 0],
+      s: [0.56, 0.07, 0.14],
+      c: TIMBER,
+    });
+  };
+  const winY = wallY0 + 0.62;
+  addWindow(-wallW * 0.31, winY, frontZ, 0);
+  addWindow(wallW * 0.31, winY, frontZ, 0);
+  addWindow(wallW / 2, winY, SHIFT_Z, Math.PI / 2);
+  addWindow(-wallW / 2, winY, SHIFT_Z, -Math.PI / 2);
 
-// Window with flower box and frames
-const SmallWindow = ({ position, rotation = [0, 0, 0] }) => (
-  <group position={position} rotation={rotation}>
-    {/* Glass pane */}
-    <mesh castShadow>
-      <boxGeometry args={[0.4, 0.4, 0.06]} />
-      <meshStandardMaterial color={PALETTE.window} roughness={0.1} metalness={0.3} flatShading />
-    </mesh>
-    {/* Wood outer frame */}
-    <mesh castShadow>
-      <boxGeometry args={[0.46, 0.46, 0.03]} />
-      <meshStandardMaterial color="#5a3f29" roughness={0.9} />
-    </mesh>
-    {/* Planter box under window */}
-    <mesh position={[0, -0.26, 0.04]} castShadow>
-      <boxGeometry args={[0.44, 0.1, 0.12]} />
-      <meshStandardMaterial color="#5a3f29" roughness={0.9} flatShading />
-    </mesh>
-    {/* Flowers in window planter */}
-    <mesh position={[-0.12, -0.18, 0.06]}>
-      <sphereGeometry args={[0.045, 4, 4]} />
-      <meshStandardMaterial color="#ef4444" flatShading />
-    </mesh>
-    <mesh position={[0, -0.18, 0.06]}>
-      <sphereGeometry args={[0.045, 4, 4]} />
-      <meshStandardMaterial color="#ffb703" flatShading />
-    </mesh>
-    <mesh position={[0.12, -0.18, 0.06]}>
-      <sphereGeometry args={[0.045, 4, 4]} />
-      <meshStandardMaterial color="#3b82f6" flatShading />
-    </mesh>
-  </group>
-);
+  // ── Garden: front path, 3 short fence runs, 1 tree, 1 flower cluster ──
+  box.push({
+    p: [0, PLOT_H + 0.025, (frontZ + PLOT_D / 2) / 2],
+    s: [0.62, 0.04, PLOT_D / 2 - frontZ],
+    c: '#9c9184',
+  });
 
-export default function GitVilleHouse({
-  position = [0, 0, 0],
-  rotation = [0, 0, 0],
-  roofColor = '#e8832a',
-  scale = 1,
-  style = 0,
-  floors = 1,
-}) {
-  const wallW   = 2.2 + (style % 2) * 0.3;
-  const wallD   = 2.0 + ((style + 1) % 2) * 0.3;
-  const baseWallH = 1.8 + (style % 3) * 0.2;
-  
-  const wallH   = baseWallH + (floors - 1) * 1.4;
-  const roofH   = 0.9 + (style % 2) * 0.15;
+  const addFence = (fx, fz, rotY, len) => {
+    const cr = Math.cos(rotY);
+    const sr = Math.sin(rotY);
+    box.push({ p: [fx, PLOT_H + 0.17, fz], r: [0, rotY, 0], s: [len, 0.055, 0.04], c: TIMBER });
+    box.push({ p: [fx, PLOT_H + 0.34, fz], r: [0, rotY, 0], s: [len, 0.055, 0.04], c: TIMBER });
+    for (let i = 0; i < 3; i++) {
+      const t = -len / 2 + (i * len) / 2;
+      box.push({
+        p: [fx + cr * t, PLOT_H + 0.23, fz - sr * t],
+        s: [0.075, 0.46, 0.075],
+        c: TIMBER,
+      });
+    }
+  };
+  // Two runs along the front with a gate gap in the middle, one down the side.
+  addFence(-1.32, PLOT_D / 2 - 0.22, 0, 1.15);
+  addFence(1.32, PLOT_D / 2 - 0.22, 0, 1.15);
+  addFence(-PLOT_W / 2 + 0.22, PLOT_D * 0.2, Math.PI / 2, 1.1);
 
-  const wallColors = ['#f5e6d0', '#eedad8', '#dde8f0', '#e8f0de'];
-  const wallColor = wallColors[style % wallColors.length];
+  const tx = PLOT_W / 2 - 0.55;
+  const tz = PLOT_D / 2 - 0.62;
+  cyl.push({ p: [tx, PLOT_H + 0.28, tz], s: [0.18, 0.56, 0.18], c: '#5b3a1e' });
+  cone.push({ p: [tx, PLOT_H + 0.76, tz], s: [0.9, 0.76, 0.9], c: '#2f6b2a' });
+  cone.push({ p: [tx, PLOT_H + 1.08, tz], s: [0.66, 0.6, 0.66], c: '#3d8434' });
 
-  // Garden base dimensions
-  const baseW = wallW + 1.8;
-  const baseD = wallD + 1.8;
-  const shiftZ = -0.4; // shift house back to leave a front garden yard
+  const fx = -0.66;
+  const fz = PLOT_D / 2 - 0.72;
+  [[0, 0], [0.14, 0.09], [-0.09, 0.13]].forEach(([dx, dz], i) => {
+    cyl.push({ p: [fx + dx, PLOT_H + 0.1, fz + dz], s: [0.035, 0.2, 0.035], c: '#3f8f35' });
+    sphere.push({
+      p: [fx + dx, PLOT_H + 0.22, fz + dz],
+      s: [0.12, 0.12, 0.12],
+      c: FLOWER_COLORS[i % FLOWER_COLORS.length],
+    });
+  });
 
-  const villagerColors = ['#dc2626', '#2563eb', '#16a34a', '#db2777'];
-  const vColor1 = villagerColors[style % villagerColors.length];
-  const vColor2 = villagerColors[(style + 2) % villagerColors.length];
-
-  return (
-    <group position={position} rotation={rotation} scale={scale}>
-      {/* GARDEN BASE / STONE FOUNDATION */}
-      <mesh position={[0, 0.15, 0]} castShadow receiveShadow>
-        <boxGeometry args={[baseW, 0.3, baseD]} />
-        <meshStandardMaterial color={PALETTE.stoneDark} flatShading roughness={0.95} />
-      </mesh>
-
-      {/* MINI GARDEN (grass, fence, flowers, path) */}
-      <MiniGarden baseW={baseW} baseD={baseD} wallW={wallW} wallD={wallD} shiftZ={shiftZ} />
-
-      {/* ROAMING PEOPLE */}
-      <Villager startX={0} startZ={wallD / 2 + shiftZ + 0.85} boundaryX={baseW / 2 - 0.55} speed={0.4 + (style % 3) * 0.08} color={vColor1} />
-      {floors >= 2 && (
-        <ZVillager startX={-0.6} startZ={wallD / 2 + shiftZ + 0.7} boundaryZ={0.35} speed={0.45} color={vColor2} />
-      )}
-
-      {/* HOUSE GROUP (shifted back along Z-axis) */}
-      <group position={[0, 0, shiftZ]}>
-        {/* HOUSE WALLS */}
-        <mesh position={[0, wallH / 2 + 0.3, 0]} castShadow receiveShadow>
-          <boxGeometry args={[wallW, wallH, wallD]} />
-          <meshStandardMaterial color={wallColor} flatShading roughness={0.85} />
-        </mesh>
-
-        {/* HALF-TIMBERED WOOD BEAMS ON WALLS */}
-        <group position={[0, 0.3, 0]}>
-          <TimberBeams w={wallW} h={wallH} d={wallD} />
-        </group>
-
-        {/* WALL TRIM / LEDGE */}
-        <mesh position={[0, wallH + 0.35, 0]}>
-          <boxGeometry args={[wallW + 0.15, 0.12, wallD + 0.15]} />
-          <meshStandardMaterial color="#5a3f29" flatShading roughness={0.95} />
-        </mesh>
-
-        {/* PREMIUM SHINGLED ROOF */}
-        <group position={[0, wallH + 0.42, 0]}>
-          <ShingledRoof width={wallW + 0.4} depth={wallD + 0.4} height={roofH} color={roofColor} />
-        </group>
-
-        {/* CHIMNEY */}
-        <mesh position={[wallW * 0.2, wallH + roofH * 0.55 + 0.3, wallD * 0.15]} castShadow>
-          <boxGeometry args={[0.28, 0.55 + (floors > 3 ? 0.3 : 0), 0.28]} />
-          <meshStandardMaterial color={PALETTE.chimney} flatShading />
-        </mesh>
-        <mesh position={[wallW * 0.2, wallH + roofH * 0.55 + 0.6 + (floors > 3 ? 0.3 : 0), wallD * 0.15]}>
-          <boxGeometry args={[0.36, 0.12, 0.36]} />
-          <meshStandardMaterial color="#5a3f29" flatShading roughness={0.9} />
-        </mesh>
-
-        {/* RUSTIC DOORWAY */}
-        <group position={[0, 0.65 + 0.3, wallD / 2 + 0.025]}>
-          <mesh castShadow>
-            <boxGeometry args={[0.55, 0.95, 0.08]} />
-            <meshStandardMaterial color="#a16207" roughness={0.95} flatShading />
-          </mesh>
-          {/* Iron decorative hinges */}
-          <mesh position={[-0.18, 0.22, 0.05]} castShadow>
-            <boxGeometry args={[0.18, 0.04, 0.01]} />
-            <meshStandardMaterial color="#374151" metalness={0.6} roughness={0.4} />
-          </mesh>
-          <mesh position={[-0.18, -0.22, 0.05]} castShadow>
-            <boxGeometry args={[0.18, 0.04, 0.01]} />
-            <meshStandardMaterial color="#374151" metalness={0.6} roughness={0.4} />
-          </mesh>
-          {/* Brass handle ring */}
-          <mesh position={[0.16, 0, 0.055]}>
-            <torusGeometry args={[0.045, 0.012, 6, 8]} />
-            <meshStandardMaterial color="#f59e0b" metalness={0.7} roughness={0.2} />
-          </mesh>
-        </group>
-
-        {/* FRONT DOOR STEP */}
-        <mesh position={[0, 0.24, wallD / 2 + 0.15]} castShadow>
-          <boxGeometry args={[0.75, 0.12, 0.22]} />
-          <meshStandardMaterial color={PALETTE.stone} flatShading />
-        </mesh>
-
-        {/* WINDOWS PER FLOOR */}
-        {Array.from({ length: floors }).map((_, f) => {
-          const floorY = 1.25 + f * 1.4;
-          return (
-            <group key={f}>
-              {/* Front Windows */}
-              {wallW > 2.3 ? (
-                <>
-                  <SmallWindow position={[-wallW * 0.27, floorY, wallD / 2 + 0.01]} />
-                  <SmallWindow position={[wallW * 0.27, floorY, wallD / 2 + 0.01]} />
-                </>
-              ) : (
-                f > 0 && <SmallWindow position={[wallW * 0.22, floorY, wallD / 2 + 0.01]} />
-              )}
-              
-              {/* Side Windows */}
-              <SmallWindow
-                position={[wallW / 2 + 0.01, floorY, 0]}
-                rotation={[0, Math.PI / 2, 0]}
-              />
-              <SmallWindow
-                position={[-wallW / 2 - 0.01, floorY, 0]}
-                rotation={[0, -Math.PI / 2, 0]}
-              />
-            </group>
-          );
-        })}
-      </group>
-    </group>
-  );
+  return { box, glass, metal, cyl, cone, sphere };
 }

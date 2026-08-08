@@ -1,4 +1,36 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+
+/**
+ * Copies text without assuming the async Clipboard API is available — it needs
+ * a secure context, so http:// previews and older browsers fall back.
+ */
+async function copyToClipboard(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    /* fall through to the textarea approach */
+  }
+
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.setAttribute('readonly', '');
+  ta.style.position = 'fixed';
+  ta.style.top = '-1000px';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  let ok = false;
+  try {
+    ok = document.execCommand('copy');
+  } catch {
+    ok = false;
+  }
+  document.body.removeChild(ta);
+  return ok;
+}
 
 export const HUD = ({ 
   user, 
@@ -15,6 +47,20 @@ export const HUD = ({
   setMinStars
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [share, setShare] = useState(null); // 'copied' | 'failed'
+
+  // window.location.href already carries /:username, so the copied link is
+  // exactly the shareable world URL.
+  const handleShare = async () => {
+    const ok = await copyToClipboard(window.location.href);
+    setShare(ok ? 'copied' : 'failed');
+  };
+
+  useEffect(() => {
+    if (!share) return undefined;
+    const t = setTimeout(() => setShare(null), 2200);
+    return () => clearTimeout(t);
+  }, [share]);
 
   const languages = useMemo(() => {
     if (!repos) return [];
@@ -34,6 +80,9 @@ export const HUD = ({
     <div id="hud">
       {/* Top-right controls */}
       <div className="hud-top">
+        <button className="reset-btn share-btn" onClick={handleShare} title={window.location.href}>
+          🔗 Share My World
+        </button>
         <button className="reset-btn" onClick={onToggleNightMode}>
           {isNightMode ? '☀️ Day Mode' : '🌙 Night Mode'}
         </button>
@@ -52,6 +101,13 @@ export const HUD = ({
           />
         )}
       </div>
+
+      {/* Copy confirmation */}
+      {share && (
+        <div className={`share-toast ${share === 'failed' ? 'is-error' : ''}`} role="status">
+          {share === 'copied' ? '✅ Link copied!' : '⚠️ Copy failed — press Ctrl+C on the address bar'}
+        </div>
+      )}
 
       {/* Sidebar Toggle Button */}
       <button 

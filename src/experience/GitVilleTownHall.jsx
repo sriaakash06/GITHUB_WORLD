@@ -2,6 +2,14 @@ import React, { useMemo, useState, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { PALETTE } from './Constants';
+import {
+  CASTLE_SCALE,
+  MOAT_INNER_R,
+  MOAT_OUTER_R,
+  BRIDGE_MID_R,
+  BRIDGE_LENGTH,
+  BRIDGE_WIDTH,
+} from './VillageLayout';
 
 // ═══════════════════════════════════════════════════════════════
 // SUB-COMPONENTS
@@ -62,7 +70,7 @@ const Tower = ({ position, radius = 1.1, height = 8, roofColor = '#c0392b' }) =>
     />
     {/* Roof finial */}
     <mesh position={[0, height + 2.7, 0]} castShadow>
-      <sphereGeometry args={[0.15, 6, 6]} />
+      <sphereGeometry args={[0.15, 5, 4]} />
       <meshStandardMaterial color="#f0c030" metalness={0.6} roughness={0.3} flatShading />
     </mesh>
     {/* Arrow slits */}
@@ -149,14 +157,16 @@ const Flag = ({ position, color, poleHeight = 2.5 }) => (
     </mesh>
     {/* Pole tip */}
     <mesh position={[0, poleHeight * 0.52, 0]} castShadow>
-      <sphereGeometry args={[0.1, 6, 6]} />
+      <sphereGeometry args={[0.1, 5, 4]} />
       <meshStandardMaterial color="#f0c030" metalness={0.5} roughness={0.3} flatShading />
     </mesh>
   </group>
 );
 
-// Torch bracket on wall
-const Torch = ({ position, rotation = [0, 0, 0] }) => (
+// Torch bracket on wall.
+// `light` is opt-in: every torch glows via emissive, but only a few carry a
+// real point light, and only at night — 15 dynamic lights tanked the frame rate.
+const Torch = ({ position, rotation = [0, 0, 0], light = false }) => (
   <group position={position} rotation={rotation}>
     {/* Bracket */}
     <mesh castShadow>
@@ -165,7 +175,7 @@ const Torch = ({ position, rotation = [0, 0, 0] }) => (
     </mesh>
     {/* Flame glow */}
     <mesh position={[0, 0.35, 0]}>
-      <sphereGeometry args={[0.12, 6, 6]} />
+      <sphereGeometry args={[0.12, 5, 4]} />
       <meshStandardMaterial
         color="#ff8800"
         emissive="#ff6600"
@@ -173,7 +183,7 @@ const Torch = ({ position, rotation = [0, 0, 0] }) => (
         flatShading
       />
     </mesh>
-    <pointLight position={[0, 0.4, 0]} intensity={0.6} distance={5} color="#ff9933" />
+    {light && <pointLight position={[0, 0.4, 0]} intensity={0.7} distance={5} color="#ff9933" />}
   </group>
 );
 
@@ -183,10 +193,8 @@ const Arch = ({ position, width = 1.8, height = 2.8, depth = 1.2 }) => {
     const shape = new THREE.Shape();
     const hw = width / 2;
     const straightH = height - hw; // height of straight part
-    // Start bottom-left
     shape.moveTo(-hw, 0);
     shape.lineTo(-hw, straightH);
-    // Semicircular arch
     shape.absarc(0, straightH, hw, Math.PI, 0, true);
     shape.lineTo(hw, 0);
     shape.lineTo(-hw, 0);
@@ -230,13 +238,9 @@ const Keep = ({ position }) => (
     {/* Battlements on keep */}
     {[-1.5, -0.5, 0.5, 1.5].map((x) =>
       [-1.5, -0.5, 0.5, 1.5].map((z) => {
-        // Only place merlons on edges
-        const isEdge =
-          Math.abs(x) === 1.5 || Math.abs(z) === 1.5;
+        const isEdge = Math.abs(x) === 1.5 || Math.abs(z) === 1.5;
         if (!isEdge) return null;
-        // skip alternating for crenel effect
-        if ((Math.round(x * 2) + Math.round(z * 2)) % 2 === 0)
-          return null;
+        if ((Math.round(x * 2) + Math.round(z * 2)) % 2 === 0) return null;
         return (
           <mesh
             key={`m-${x}-${z}`}
@@ -262,24 +266,21 @@ const Keep = ({ position }) => (
     <ConeRoof position={[0, 10.1, 0]} radius={2} height={3} color={PALETTE.townHallRoof} />
     {/* Spire finial */}
     <mesh position={[0, 11.8, 0]} castShadow>
-      <sphereGeometry args={[0.22, 6, 6]} />
+      <sphereGeometry args={[0.22, 5, 4]} />
       <meshStandardMaterial color="#f0c030" metalness={0.7} roughness={0.2} flatShading />
     </mesh>
 
     {/* Keep windows */}
     {[0, Math.PI / 2, Math.PI, -Math.PI / 2].map((ry, i) => (
       <group key={`kw-${i}`} rotation={[0, ry, 0]}>
-        {/* Lower window */}
         <mesh position={[0, 2.2, 2.02]} castShadow>
           <boxGeometry args={[0.5, 0.8, 0.08]} />
           <meshStandardMaterial color={PALETTE.window} roughness={0.1} metalness={0.2} flatShading />
         </mesh>
-        {/* Upper window */}
         <mesh position={[0, 4.8, 2.02]} castShadow>
           <boxGeometry args={[0.5, 0.8, 0.08]} />
           <meshStandardMaterial color={PALETTE.window} roughness={0.1} metalness={0.2} flatShading />
         </mesh>
-        {/* Top tower window */}
         <mesh position={[0, 7.8, 1.22]} castShadow>
           <boxGeometry args={[0.4, 0.6, 0.08]} />
           <meshStandardMaterial color={PALETTE.window} roughness={0.1} metalness={0.2} flatShading />
@@ -289,72 +290,73 @@ const Keep = ({ position }) => (
   </group>
 );
 
-// Moat (water ring)
-const Moat = ({ innerRadius = 9, outerRadius = 10.5 }) => (
-  <group>
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.08, 0]} receiveShadow>
-      <ringGeometry args={[innerRadius, outerRadius, 32]} />
+// ─────────────────────────────────────────────
+// MOAT WATER RING (Centered exactly at world origin [0,0,0])
+// ─────────────────────────────────────────────
+export const MoatWaterRing = ({ innerRadius = 1.95, outerRadius = 3.45 }) => (
+  <group position={[0, 0, 0]}>
+    {/* Water Ring surface */}
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]} receiveShadow>
+      <ringGeometry args={[innerRadius, outerRadius, 64]} />
       <meshStandardMaterial
-        color={PALETTE.water}
-        roughness={0.15}
-        metalness={0.3}
+        color="#4db8ff"
+        emissive="#1a8cff"
+        emissiveIntensity={0.2}
+        roughness={0.1}
+        metalness={0.4}
         transparent
         opacity={0.85}
+        side={THREE.DoubleSide}
         flatShading
       />
     </mesh>
-    {/* Moat bed */}
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.2, 0]} receiveShadow>
-      <ringGeometry args={[innerRadius - 0.3, outerRadius + 0.3, 32]} />
-      <meshStandardMaterial color="#1a6b8a" roughness={0.9} flatShading />
+    {/* Moat bed trench */}
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.15, 0]} receiveShadow>
+      <ringGeometry args={[innerRadius - 0.08, outerRadius + 0.08, 64]} />
+      <meshStandardMaterial color="#194866" roughness={0.9} flatShading side={THREE.DoubleSide} />
     </mesh>
   </group>
 );
 
-// Drawbridge
-const Drawbridge = ({ position }) => (
-  <group position={position}>
+// ─────────────────────────────────────────────
+// PLANK-STYLE WOODEN BRIDGES (North, South, East, West)
+// ─────────────────────────────────────────────
+export const PlankBridge = ({ position, rotation = [0, 0, 0], length = 1.6, width = 0.5 }) => (
+  <group position={position} rotation={rotation}>
     {/* Bridge deck */}
-    <mesh position={[0, 0.08, 0]} castShadow receiveShadow>
-      <boxGeometry args={[2.4, 0.15, 3]} />
-      <meshStandardMaterial color="#8B6914" roughness={0.9} flatShading />
+    <mesh position={[0, 0.04, 0]} castShadow receiveShadow>
+      <boxGeometry args={[width, 0.06, length]} />
+      <meshStandardMaterial color="#8B5A2B" roughness={0.85} flatShading />
     </mesh>
-    {/* Planks */}
-    {[-0.9, -0.45, 0, 0.45, 0.9].map((z, i) => (
-      <mesh key={i} position={[0, 0.17, z]}>
-        <boxGeometry args={[2.2, 0.03, 0.08]} />
-        <meshStandardMaterial color="#6B4F1A" roughness={0.9} flatShading />
-      </mesh>
-    ))}
-    {/* Side rails */}
-    <mesh position={[-1.1, 0.35, 0]} castShadow>
-      <boxGeometry args={[0.1, 0.5, 3]} />
-      <meshStandardMaterial color="#5a4030" roughness={0.9} flatShading />
-    </mesh>
-    <mesh position={[1.1, 0.35, 0]} castShadow>
-      <boxGeometry args={[0.1, 0.5, 3]} />
-      <meshStandardMaterial color="#5a4030" roughness={0.9} flatShading />
-    </mesh>
-  </group>
-);
 
-// Hexagonal raised platform
-const CastlePlatform = () => (
-  <group>
-    {/* Grass top */}
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.55, 0]} receiveShadow>
-      <circleGeometry args={[12, 6]} />
-      <meshStandardMaterial color={PALETTE.grassLight} flatShading roughness={0.9} />
-    </mesh>
-    {/* Stone base layers */}
-    <mesh position={[0, 0.3, 0]} castShadow receiveShadow>
-      <cylinderGeometry args={[11.8, 12.5, 0.6, 6]} />
-      <meshStandardMaterial color={PALETTE.stone} flatShading roughness={0.95} />
-    </mesh>
-    <mesh position={[0, -0.1, 0]} castShadow receiveShadow>
-      <cylinderGeometry args={[12.5, 13.5, 0.6, 6]} />
-      <meshStandardMaterial color={PALETTE.stoneDark} flatShading roughness={0.95} />
-    </mesh>
+    {/* Individual wood planks */}
+    {Array.from({ length: 6 }).map((_, i) => {
+      const zPos = -length / 2 + (i + 0.5) * (length / 6);
+      return (
+        <mesh key={`plank-${i}`} position={[0, 0.075, zPos]} castShadow>
+          <boxGeometry args={[width * 0.95, 0.02, length / 7]} />
+          <meshStandardMaterial color="#6E441B" roughness={0.9} flatShading />
+        </mesh>
+      );
+    })}
+
+    {/* Rail posts & side rails */}
+    {[-width / 2 + 0.03, width / 2 - 0.03].map((xSide, sideIdx) => (
+      <group key={`side-rail-${sideIdx}`}>
+        {/* Posts */}
+        {[-length / 2.2, 0, length / 2.2].map((zPos, postIdx) => (
+          <mesh key={`post-${postIdx}`} position={[xSide, 0.18, zPos]} castShadow>
+            <cylinderGeometry args={[0.02, 0.02, 0.3, 6]} />
+            <meshStandardMaterial color="#4A2E11" flatShading />
+          </mesh>
+        ))}
+        {/* Top handrail */}
+        <mesh position={[xSide, 0.3, 0]} castShadow>
+          <boxGeometry args={[0.03, 0.03, length]} />
+          <meshStandardMaterial color="#4A2E11" flatShading />
+        </mesh>
+      </group>
+    ))}
   </group>
 );
 
@@ -362,14 +364,16 @@ const CastlePlatform = () => (
 // MAIN CASTLE COMPONENT
 // ═══════════════════════════════════════════════════════════════
 
-export default function GitVilleTownHall({ position = [0, 0, 0], username }) {
+export default function GitVilleTownHall({ position = [0, 0, 0], username, isNightMode }) {
   const [hovered, setHovered] = useState(false);
   const groupRef = useRef();
 
   useFrame((_, delta) => {
     if (!groupRef.current) return;
-    const target = hovered ? 0.46 : 0.44;
+    const target = hovered ? CASTLE_SCALE * 1.07 : CASTLE_SCALE;
     const cur = groupRef.current.scale.x;
+    // Settled: skip the write entirely rather than churning the matrix every frame.
+    if (Math.abs(target - cur) < 1e-4) return;
     const next = cur + (target - cur) * Math.min(delta * 10, 1);
     groupRef.current.scale.set(next, next, next);
   });
@@ -384,277 +388,277 @@ export default function GitVilleTownHall({ position = [0, 0, 0], username }) {
   ];
   const towerRoofColors = ['#c0392b', '#c0392b', '#2c3e80', '#2c3e80'];
 
-  // Outer wall layout calculations (hexagon vertices, midpoints, and rotations)
+  // Outer wall layout calculations
   const outerR = 11.7;
   const outerRm = outerR * Math.cos(Math.PI / 6);
   const vertexAngles = useMemo(() => [0, Math.PI / 3, 2 * Math.PI / 3, Math.PI, 4 * Math.PI / 3, 5 * Math.PI / 3], []);
   const midAngles = useMemo(() => [Math.PI / 6, Math.PI / 2, 5 * Math.PI / 6, 7 * Math.PI / 6, 3 * Math.PI / 2, 11 * Math.PI / 6], []);
   const outerRoofColors = useMemo(() => ['#c0392b', '#2c3e80', '#c0392b', '#2c3e80', '#c0392b', '#2c3e80'], []);
 
-
+  // Fix 7 — the moat, the bridges and the castle group all sit on [0, y, 0] and
+  // every radius is derived from CASTLE_SCALE in VillageLayout, so the water ring
+  // is always a perfect concentric circle hugging the castle plinth. The old
+  // values were computed for scale 0.15 while the castle actually rendered at
+  // 0.22, which is why the plinth overhung most of the water.
   return (
-    <group
-      ref={groupRef}
-      position={position}
-      scale={[0.44, 0.44, 0.44]}
-      onPointerOver={(e) => {
-        e.stopPropagation();
-        setHovered(true);
-        document.body.style.cursor = 'pointer';
-      }}
-      onPointerOut={() => {
-        setHovered(false);
-        document.body.style.cursor = 'default';
-      }}
-      onPointerUp={(e) => {
-        e.stopPropagation();
-        const url = username
-          ? `https://github.com/${username}`
-          : `https://github.com/sriaakash06`;
-        window.open(url, '_blank', 'noopener,noreferrer');
-      }}
-    >
-      {/* ── PLATFORM ── */}
-      <CastlePlatform />
+    <group position={[position[0], position[1], position[2]]}>
+      {/* ── CIRCULAR WATER MOAT ── */}
+      <MoatWaterRing innerRadius={MOAT_INNER_R} outerRadius={MOAT_OUTER_R} />
 
-      {/* ── MOAT ── */}
-      <Moat innerRadius={8.5} outerRadius={10} />
+      {/* ── 4 WOODEN BRIDGES, evenly spaced at 0° / 90° / 180° / 270° ── */}
+      {/* North Bridge (Z-) */}
+      <PlankBridge position={[0, 0, -BRIDGE_MID_R]} rotation={[0, 0, 0]} length={BRIDGE_LENGTH} width={BRIDGE_WIDTH} />
+      {/* South Bridge (Z+) */}
+      <PlankBridge position={[0, 0, BRIDGE_MID_R]} rotation={[0, Math.PI, 0]} length={BRIDGE_LENGTH} width={BRIDGE_WIDTH} />
+      {/* East Bridge (X+) */}
+      <PlankBridge position={[BRIDGE_MID_R, 0, 0]} rotation={[0, Math.PI / 2, 0]} length={BRIDGE_LENGTH} width={BRIDGE_WIDTH} />
+      {/* West Bridge (X-) */}
+      <PlankBridge position={[-BRIDGE_MID_R, 0, 0]} rotation={[0, -Math.PI / 2, 0]} length={BRIDGE_LENGTH} width={BRIDGE_WIDTH} />
 
-      {/* ── OUTER WATCHTOWERS ── */}
-      {vertexAngles.map((angle, i) => (
-        <Tower
-          key={`outer-tower-${i}`}
-          position={[outerR * Math.cos(angle), 0.5, outerR * Math.sin(angle)]}
-          radius={0.75}
-          height={4.5}
-          roofColor={outerRoofColors[i]}
-        />
-      ))}
-
-      {/* ── OUTER PERIMETER WALLS ── */}
-      {midAngles.map((angle, i) => {
-        // Skip the front wall segment (i = 1), which is split for entrance gate
-        if (i === 1) return null;
-        return (
-          <CastleWall
-            key={`outer-wall-${i}`}
-            position={[outerRm * Math.cos(angle), 0.5, outerRm * Math.sin(angle)]}
-            rotation={[0, Math.PI / 2 - angle, 0]}
-            width={11.7}
-            height={3.2}
-            depth={0.5}
-          />
-        );
-      })}
-
-      {/* Front outer walls (Z+) — split for gate access */}
-      <CastleWall
-        position={[-3.65, 0.5, outerRm]}
-        rotation={[0, 0, 0]}
-        width={4.4}
-        height={3.2}
-        depth={0.5}
-      />
-      <CastleWall
-        position={[3.65, 0.5, outerRm]}
-        rotation={[0, 0, 0]}
-        width={4.4}
-        height={3.2}
-        depth={0.5}
-      />
-
-      {/* Gateway pillars at front entrance */}
-      {[-1.45, 1.45].map((x, idx) => (
-        <group key={`gate-pillar-${idx}`} position={[x, 0.5, outerRm]}>
-          {/* Main pillar column */}
-          <mesh position={[0, 1.8, 0]} castShadow receiveShadow>
-            <boxGeometry args={[0.6, 3.6, 0.6]} />
-            <meshStandardMaterial color={PALETTE.stoneDark} roughness={0.9} flatShading />
+      {/* ── CASTLE MODEL (Fix 6 — 1.36× its old scale, the tallest thing here) ── */}
+      <group
+        ref={groupRef}
+        position={[0, 0, 0]}
+        scale={[CASTLE_SCALE, CASTLE_SCALE, CASTLE_SCALE]}
+        onPointerOver={(e) => {
+          e.stopPropagation();
+          setHovered(true);
+          document.body.style.cursor = 'pointer';
+        }}
+        onPointerOut={() => {
+          setHovered(false);
+          document.body.style.cursor = 'default';
+        }}
+        onPointerUp={(e) => {
+          e.stopPropagation();
+          if (!username) return;
+          window.open(
+            `https://github.com/${encodeURIComponent(username)}`,
+            '_blank',
+            'noopener,noreferrer'
+          );
+        }}
+      >
+        {/* ── CASTLE PLATFORM ── */}
+        <group>
+          {/* Grass top */}
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.55, 0]} receiveShadow>
+            <circleGeometry args={[12, 6]} />
+            <meshStandardMaterial color={PALETTE.grassLight} flatShading roughness={0.9} />
           </mesh>
-          {/* Pillar cap */}
-          <mesh position={[0, 3.7, 0]} castShadow>
-            <boxGeometry args={[0.8, 0.2, 0.8]} />
-            <meshStandardMaterial color={PALETTE.stone} roughness={0.8} flatShading />
+          {/* Stone base layers */}
+          <mesh position={[0, 0.3, 0]} castShadow receiveShadow>
+            <cylinderGeometry args={[11.8, 12.5, 0.6, 6]} />
+            <meshStandardMaterial color={PALETTE.stone} flatShading roughness={0.95} />
           </mesh>
-          {/* Small decorative sphere on top */}
-          <mesh position={[0, 3.95, 0]} castShadow>
-            <sphereGeometry args={[0.2, 6, 6]} />
-            <meshStandardMaterial color="#f0c030" metalness={0.6} roughness={0.3} flatShading />
+          <mesh position={[0, -0.1, 0]} castShadow receiveShadow>
+            <cylinderGeometry args={[12.5, 13.5, 0.6, 6]} />
+            <meshStandardMaterial color={PALETTE.stoneDark} flatShading roughness={0.95} />
           </mesh>
         </group>
-      ))}
 
-      {/* Torches on outer perimeter walls */}
-      {midAngles.map((angle, i) => {
-        if (i === 1) return null;
-        const torchR = outerRm + 0.3;
-        return (
-          <Torch
-            key={`outer-torch-${i}`}
-            position={[torchR * Math.cos(angle), 2.2, torchR * Math.sin(angle)]}
-            rotation={[0, Math.PI / 2 - angle, 0]}
+        {/* ── OUTER WATCHTOWERS ── */}
+        {vertexAngles.map((angle, i) => (
+          <Tower
+            key={`outer-tower-${i}`}
+            position={[outerR * Math.cos(angle), 0.5, outerR * Math.sin(angle)]}
+            radius={0.75}
+            height={4.5}
+            roofColor={outerRoofColors[i]}
           />
-        );
-      })}
+        ))}
 
-      {/* Torches on gate pillars */}
-      <Torch position={[-1.45, 2.2, outerRm + 0.35]} />
-      <Torch position={[1.45, 2.2, outerRm + 0.35]} />
+        {/* ── OUTER PERIMETER WALLS ── */}
+        {midAngles.map((angle, i) => {
+          if (i === 1) return null;
+          return (
+            <CastleWall
+              key={`outer-wall-${i}`}
+              position={[outerRm * Math.cos(angle), 0.5, outerRm * Math.sin(angle)]}
+              rotation={[0, Math.PI / 2 - angle, 0]}
+              width={11.7}
+              height={3.2}
+              depth={0.5}
+            />
+          );
+        })}
 
-
-      {/* ── CASTLE FOUNDATION ── */}
-      <mesh position={[0, 0.8, 0]} castShadow receiveShadow>
-        <boxGeometry args={[12.5, 0.6, 12.5]} />
-        <meshStandardMaterial color={PALETTE.stoneDark} roughness={0.95} flatShading />
-      </mesh>
-
-      {/* ── COURTYARD FLOOR ── */}
-      <mesh position={[0, 1.12, 0]} receiveShadow>
-        <boxGeometry args={[10.5, 0.05, 10.5]} />
-        <meshStandardMaterial color="#c2b280" roughness={0.95} flatShading />
-      </mesh>
-
-      {/* ── CORNER TOWERS ── */}
-      {cornerPositions.map((pos, i) => (
-        <Tower
-          key={`tower-${i}`}
-          position={pos}
-          radius={1.2}
-          height={8}
-          roofColor={towerRoofColors[i]}
+        {/* Front outer walls (Z+) — split for gate access */}
+        <CastleWall
+          position={[-3.65, 0.5, outerRm]}
+          rotation={[0, 0, 0]}
+          width={4.4}
+          height={3.2}
+          depth={0.5}
         />
-      ))}
+        <CastleWall
+          position={[3.65, 0.5, outerRm]}
+          rotation={[0, 0, 0]}
+          width={4.4}
+          height={3.2}
+          depth={0.5}
+        />
 
-      {/* ── CURTAIN WALLS (connecting towers) ── */}
-      {/* Front wall (Z+) — split for gatehouse */}
-      <CastleWall position={[-3.5, 0.5, towerR]} width={3} height={5} depth={0.6} />
-      <CastleWall position={[3.5, 0.5, towerR]} width={3} height={5} depth={0.6} />
-
-      {/* Back wall (Z-) */}
-      <CastleWall position={[0, 0.5, -towerR]} width={9.5} height={5} depth={0.6} />
-
-      {/* Left wall (X-) */}
-      <CastleWall
-        position={[-towerR, 0.5, 0]}
-        rotation={[0, Math.PI / 2, 0]}
-        width={9.5}
-        height={5}
-        depth={0.6}
-      />
-
-      {/* Right wall (X+) */}
-      <CastleWall
-        position={[towerR, 0.5, 0]}
-        rotation={[0, Math.PI / 2, 0]}
-        width={9.5}
-        height={5}
-        depth={0.6}
-      />
-
-      {/* ── GATEHOUSE ── */}
-      <group position={[0, 0.5, towerR]}>
-        {/* Gatehouse towers (smaller) */}
-        <mesh position={[-1.5, 3.5, 0]} castShadow receiveShadow>
-          <boxGeometry args={[1.2, 7, 1.4]} />
-          <meshStandardMaterial color={PALETTE.stone} roughness={0.85} flatShading />
-        </mesh>
-        <mesh position={[1.5, 3.5, 0]} castShadow receiveShadow>
-          <boxGeometry args={[1.2, 7, 1.4]} />
-          <meshStandardMaterial color={PALETTE.stone} roughness={0.85} flatShading />
-        </mesh>
-        {/* Gatehouse roof peaks */}
-        <ConeRoof position={[-1.5, 7.8, 0]} radius={1} height={1.8} color={PALETTE.townHallRoof} />
-        <ConeRoof position={[1.5, 7.8, 0]} radius={1} height={1.8} color={PALETTE.townHallRoof} />
-        {/* Connecting top beam */}
-        <mesh position={[0, 6.5, 0]} castShadow>
-          <boxGeometry args={[4.2, 0.8, 1.2]} />
-          <meshStandardMaterial color={PALETTE.stoneDark} roughness={0.9} flatShading />
-        </mesh>
-        {/* Arch opening */}
-        <Arch position={[0, 0, 0.35]} width={1.6} height={3.2} depth={1.6} />
-        {/* Portcullis (iron gate) */}
-        <group position={[0, 0, 0.6]}>
-          {/* Vertical bars */}
-          {[-0.55, -0.25, 0, 0.25, 0.55].map((x, i) => (
-            <mesh key={`vbar-${i}`} position={[x, 1.5, 0]}>
-              <boxGeometry args={[0.06, 3, 0.06]} />
-              <meshStandardMaterial color="#4a4a5a" metalness={0.7} roughness={0.3} flatShading />
+        {/* Gateway pillars at front entrance */}
+        {[-1.45, 1.45].map((x, idx) => (
+          <group key={`gate-pillar-${idx}`} position={[x, 0.5, outerRm]}>
+            <mesh position={[0, 1.8, 0]} castShadow receiveShadow>
+              <boxGeometry args={[0.6, 3.6, 0.6]} />
+              <meshStandardMaterial color={PALETTE.stoneDark} roughness={0.9} flatShading />
             </mesh>
-          ))}
-          {/* Horizontal bars */}
-          {[0.5, 1.2, 1.9, 2.6].map((y, i) => (
-            <mesh key={`hbar-${i}`} position={[0, y, 0]}>
-              <boxGeometry args={[1.2, 0.06, 0.06]} />
-              <meshStandardMaterial color="#4a4a5a" metalness={0.7} roughness={0.3} flatShading />
+            <mesh position={[0, 3.7, 0]} castShadow>
+              <boxGeometry args={[0.8, 0.2, 0.8]} />
+              <meshStandardMaterial color={PALETTE.stone} roughness={0.8} flatShading />
             </mesh>
-          ))}
-        </group>
-        {/* Gatehouse battlements */}
-        {[-1, 0, 1].map((x) => (
-          <mesh key={`gb-${x}`} position={[x * 0.7, 7.1, 0.5]} castShadow>
-            <boxGeometry args={[0.35, 0.5, 0.35]} />
+            <mesh position={[0, 3.95, 0]} castShadow>
+              <sphereGeometry args={[0.2, 5, 4]} />
+              <meshStandardMaterial color="#f0c030" metalness={0.6} roughness={0.3} flatShading />
+            </mesh>
+          </group>
+        ))}
+
+        {/* Torches on outer perimeter walls */}
+        {midAngles.map((angle, i) => {
+          if (i === 1) return null;
+          const torchR = outerRm + 0.3;
+          return (
+            <Torch
+              key={`outer-torch-${i}`}
+              position={[torchR * Math.cos(angle), 2.2, torchR * Math.sin(angle)]}
+              rotation={[0, Math.PI / 2 - angle, 0]}
+            />
+          );
+        })}
+
+        <Torch position={[-1.45, 2.2, outerRm + 0.35]} light={isNightMode} />
+        <Torch position={[1.45, 2.2, outerRm + 0.35]} light={isNightMode} />
+
+        {/* ── CASTLE FOUNDATION ── */}
+        <mesh position={[0, 0.8, 0]} castShadow receiveShadow>
+          <boxGeometry args={[12.5, 0.6, 12.5]} />
+          <meshStandardMaterial color={PALETTE.stoneDark} roughness={0.95} flatShading />
+        </mesh>
+
+        {/* ── COURTYARD FLOOR ── */}
+        <mesh position={[0, 1.12, 0]} receiveShadow>
+          <boxGeometry args={[10.5, 0.05, 10.5]} />
+          <meshStandardMaterial color="#c2b280" roughness={0.95} flatShading />
+        </mesh>
+
+        {/* ── CORNER TOWERS ── */}
+        {cornerPositions.map((pos, i) => (
+          <Tower
+            key={`tower-${i}`}
+            position={pos}
+            radius={1.2}
+            height={8}
+            roofColor={towerRoofColors[i]}
+          />
+        ))}
+
+        {/* ── CURTAIN WALLS ── */}
+        <CastleWall position={[-3.5, 0.5, towerR]} width={3} height={5} depth={0.6} />
+        <CastleWall position={[3.5, 0.5, towerR]} width={3} height={5} depth={0.6} />
+        <CastleWall position={[0, 0.5, -towerR]} width={9.5} height={5} depth={0.6} />
+        <CastleWall
+          position={[-towerR, 0.5, 0]}
+          rotation={[0, Math.PI / 2, 0]}
+          width={9.5}
+          height={5}
+          depth={0.6}
+        />
+        <CastleWall
+          position={[towerR, 0.5, 0]}
+          rotation={[0, Math.PI / 2, 0]}
+          width={9.5}
+          height={5}
+          depth={0.6}
+        />
+
+        {/* ── GATEHOUSE ── */}
+        <group position={[0, 0.5, towerR]}>
+          <mesh position={[-1.5, 3.5, 0]} castShadow receiveShadow>
+            <boxGeometry args={[1.2, 7, 1.4]} />
             <meshStandardMaterial color={PALETTE.stone} roughness={0.85} flatShading />
           </mesh>
-        ))}
-      </group>
+          <mesh position={[1.5, 3.5, 0]} castShadow receiveShadow>
+            <boxGeometry args={[1.2, 7, 1.4]} />
+            <meshStandardMaterial color={PALETTE.stone} roughness={0.85} flatShading />
+          </mesh>
+          <ConeRoof position={[-1.5, 7.8, 0]} radius={1} height={1.8} color={PALETTE.townHallRoof} />
+          <ConeRoof position={[1.5, 7.8, 0]} radius={1} height={1.8} color={PALETTE.townHallRoof} />
+          <mesh position={[0, 6.5, 0]} castShadow>
+            <boxGeometry args={[4.2, 0.8, 1.2]} />
+            <meshStandardMaterial color={PALETTE.stoneDark} roughness={0.9} flatShading />
+          </mesh>
+          <Arch position={[0, 0, 0.35]} width={1.6} height={3.2} depth={1.6} />
+          <group position={[0, 0, 0.6]}>
+            {[-0.55, -0.25, 0, 0.25, 0.55].map((x, i) => (
+              <mesh key={`vbar-${i}`} position={[x, 1.5, 0]}>
+                <boxGeometry args={[0.06, 3, 0.06]} />
+                <meshStandardMaterial color="#4a4a5a" metalness={0.7} roughness={0.3} flatShading />
+              </mesh>
+            ))}
+            {[0.5, 1.2, 1.9, 2.6].map((y, i) => (
+              <mesh key={`hbar-${i}`} position={[0, y, 0]}>
+                <boxGeometry args={[1.2, 0.06, 0.06]} />
+                <meshStandardMaterial color="#4a4a5a" metalness={0.7} roughness={0.3} flatShading />
+              </mesh>
+            ))}
+          </group>
+          {[-1, 0, 1].map((x) => (
+            <mesh key={`gb-${x}`} position={[x * 0.7, 7.1, 0.5]} castShadow>
+              <boxGeometry args={[0.35, 0.5, 0.35]} />
+              <meshStandardMaterial color={PALETTE.stone} roughness={0.85} flatShading />
+            </mesh>
+          ))}
+        </group>
 
-      {/* ── DRAWBRIDGE ── */}
-      <Drawbridge position={[0, 0.55, towerR + 2]} />
+        {/* ── CENTRAL KEEP ── */}
+        <Keep position={[0, 1.1, 0]} />
 
-      {/* ── CENTRAL KEEP ── */}
-      <Keep position={[0, 1.1, 0]} />
+        {/* ── WALL TORCHES ── */}
+        {/* Wall torches glow via emissive only — the night light budget is spent
+            on the gate torches above and the street lamps. */}
+        <Torch position={[-3.5, 3.5, towerR + 0.35]} />
+        <Torch position={[3.5, 3.5, towerR + 0.35]} />
+        <Torch position={[-2.5, 3.5, -towerR - 0.35]} rotation={[0, Math.PI, 0]} />
+        <Torch position={[2.5, 3.5, -towerR - 0.35]} rotation={[0, Math.PI, 0]} />
+        <Torch position={[-towerR - 0.35, 3.5, -2]} rotation={[0, -Math.PI / 2, 0]} />
+        <Torch position={[-towerR - 0.35, 3.5, 2]} rotation={[0, -Math.PI / 2, 0]} />
+        <Torch position={[towerR + 0.35, 3.5, -2]} rotation={[0, Math.PI / 2, 0]} />
+        <Torch position={[towerR + 0.35, 3.5, 2]} rotation={[0, Math.PI / 2, 0]} />
 
-      {/* ── WALL TORCHES ── */}
-      {/* Front wall torches */}
-      <Torch position={[-3.5, 3.5, towerR + 0.35]} />
-      <Torch position={[3.5, 3.5, towerR + 0.35]} />
-      {/* Back wall torches */}
-      <Torch position={[-2.5, 3.5, -towerR - 0.35]} rotation={[0, Math.PI, 0]} />
-      <Torch position={[2.5, 3.5, -towerR - 0.35]} rotation={[0, Math.PI, 0]} />
-      {/* Side wall torches */}
-      <Torch position={[-towerR - 0.35, 3.5, -2]} rotation={[0, -Math.PI / 2, 0]} />
-      <Torch position={[-towerR - 0.35, 3.5, 2]} rotation={[0, -Math.PI / 2, 0]} />
-      <Torch position={[towerR + 0.35, 3.5, -2]} rotation={[0, Math.PI / 2, 0]} />
-      <Torch position={[towerR + 0.35, 3.5, 2]} rotation={[0, Math.PI / 2, 0]} />
+        {/* ── FLAGS ── */}
+        <Flag position={[cornerPositions[0][0], 11.5, cornerPositions[0][2]]} color="#e8832a" poleHeight={2.5} />
+        <Flag position={[cornerPositions[1][0], 11.5, cornerPositions[1][2]]} color="#f0c030" poleHeight={2.5} />
+        <Flag position={[cornerPositions[2][0], 11.5, cornerPositions[2][2]]} color="#4a90d9" poleHeight={2.5} />
+        <Flag position={[cornerPositions[3][0], 11.5, cornerPositions[3][2]]} color="#d94a4a" poleHeight={2.5} />
 
-      {/* ── FLAGS ── */}
-      <Flag position={[cornerPositions[0][0], 11.5, cornerPositions[0][2]]} color="#e8832a" poleHeight={2.5} />
-      <Flag position={[cornerPositions[1][0], 11.5, cornerPositions[1][2]]} color="#f0c030" poleHeight={2.5} />
-      <Flag position={[cornerPositions[2][0], 11.5, cornerPositions[2][2]]} color="#4a90d9" poleHeight={2.5} />
-      <Flag position={[cornerPositions[3][0], 11.5, cornerPositions[3][2]]} color="#d94a4a" poleHeight={2.5} />
+        {/* ── COURTYARD DECORATION ── */}
+        <group position={[2.5, 1.1, -2]}>
+          <mesh position={[0, 0.3, 0]} castShadow>
+            <cylinderGeometry args={[0.5, 0.55, 0.6, 8]} />
+            <meshStandardMaterial color={PALETTE.stoneDark} roughness={0.9} flatShading />
+          </mesh>
+          <mesh position={[0, 0.05, 0]}>
+            <cylinderGeometry args={[0.4, 0.4, 0.15, 8]} />
+            <meshStandardMaterial color={PALETTE.water} roughness={0.2} metalness={0.3} flatShading />
+          </mesh>
+        </group>
 
-      {/* ── PORCH STEPS (leading to drawbridge) ── */}
-      {[0, 1, 2].map((i) => (
-        <mesh key={`step-${i}`} position={[0, 0.6 + i * 0.15, towerR + 3.6 + i * 0.4]} castShadow receiveShadow>
-          <boxGeometry args={[2.8 - i * 0.3, 0.15, 0.5]} />
-          <meshStandardMaterial color={PALETTE.stoneDark} flatShading />
-        </mesh>
-      ))}
-
-      {/* ── COURTYARD DECORATION ── */}
-      {/* Small well in courtyard */}
-      <group position={[2.5, 1.1, -2]}>
-        <mesh position={[0, 0.3, 0]} castShadow>
-          <cylinderGeometry args={[0.5, 0.55, 0.6, 8]} />
-          <meshStandardMaterial color={PALETTE.stoneDark} roughness={0.9} flatShading />
-        </mesh>
-        <mesh position={[0, 0.05, 0]}>
-          <cylinderGeometry args={[0.4, 0.4, 0.15, 8]} />
-          <meshStandardMaterial color={PALETTE.water} roughness={0.2} metalness={0.3} flatShading />
-        </mesh>
-      </group>
-
-      {/* Courtyard banner pole */}
-      <group position={[-2.5, 1.1, 2]}>
-        <mesh position={[0, 1.2, 0]} castShadow>
-          <cylinderGeometry args={[0.06, 0.06, 2.4, 6]} />
-          <meshStandardMaterial color="#5a4030" flatShading />
-        </mesh>
-        <mesh position={[0.45, 2.2, 0]} castShadow>
-          <boxGeometry args={[0.8, 0.5, 0.05]} />
-          <meshStandardMaterial color={PALETTE.townHallAccent} flatShading />
-        </mesh>
+        <group position={[-2.5, 1.1, 2]}>
+          <mesh position={[0, 1.2, 0]} castShadow>
+            <cylinderGeometry args={[0.06, 0.06, 2.4, 6]} />
+            <meshStandardMaterial color="#5a4030" flatShading />
+          </mesh>
+          <mesh position={[0.45, 2.2, 0]} castShadow>
+            <boxGeometry args={[0.8, 0.5, 0.05]} />
+            <meshStandardMaterial color={PALETTE.townHallAccent} flatShading />
+          </mesh>
+        </group>
       </group>
     </group>
   );
 }
+
