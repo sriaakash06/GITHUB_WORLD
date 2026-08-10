@@ -32,6 +32,15 @@ async function copyToClipboard(text) {
   return ok;
 }
 
+const DECORATIONS = [
+  { key: 'waterTower', label: 'Water Towers' },
+  { key: 'windmill', label: 'Windmills' },
+  { key: 'wagon', label: 'Wagons & Carts' },
+  { key: 'stall', label: 'Market Stalls' },
+  { key: 'characters', label: 'Villagers & Animals' },
+  { key: 'balloons', label: 'Hot Air Balloons' },
+];
+
 export const HUD = ({ 
   user, 
   repos,
@@ -44,7 +53,9 @@ export const HUD = ({
   selectedLanguage,
   setSelectedLanguage,
   minStars,
-  setMinStars
+  setMinStars,
+  visibleProps,
+  onToggleProp
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [share, setShare] = useState(null); // 'copied' | 'failed'
@@ -152,6 +163,24 @@ export const HUD = ({
             </div>
           </div>
         )}
+
+        <div className="sidebar-section">
+          <h3 className="sidebar-subtitle">World Decorations</h3>
+          <div className="deco-list">
+            {DECORATIONS.map(({ key, label }) => (
+              <label key={key} className="deco-row">
+                <span className="deco-label">{label}</span>
+                <input
+                  type="checkbox"
+                  className="deco-checkbox"
+                  checked={visibleProps?.[key] !== false}
+                  onChange={() => onToggleProp?.(key)}
+                />
+                <span className="deco-switch" aria-hidden="true" />
+              </label>
+            ))}
+          </div>
+        </div>
 
         <div className="sidebar-section">
           <h3 className="sidebar-subtitle">Find Repositories</h3>

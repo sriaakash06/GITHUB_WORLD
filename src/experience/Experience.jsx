@@ -8,7 +8,12 @@ import GitVilleTownHall from './GitVilleTownHall';
 import { IslandBase } from './IslandBase';
 import { IslandRoadSystem } from './IslandRoadSystem';
 import { VillageQuadrants } from './VillageQuadrants';
-import { placeHouses, computeProps, verifyProps } from './VillageLayout';
+import {
+  placeHouses,
+  computeProps,
+  verifyProps,
+  RING_ROAD_OUTER_R,
+} from './VillageLayout';
 import { VillageProps } from './VillageProps';
 import { SKY_DAY, SKY_NIGHT } from './Constants';
 import { UNIT_BOX, MAT_MATTE } from './InstancedBatch';
@@ -34,13 +39,36 @@ const CLOUD_PUFFS = [
 ];
 const BALLOON_COLORS = ['#e05545', '#e8b93a', '#4a9fe0', '#e07bb0'];
 
-// ── House-focus camera framing (Fix 3) ──
-/** Distance in front of the door. Must stay under the 4.95 ring step. */
-const FOCUS_BACK = 3.6;
-/** Slight sideways offset so the shot is 3/4 rather than dead-on. */
-const FOCUS_SIDE = 0.9;
-const FOCUS_HEIGHT = 2.2;
-const FOCUS_TARGET_Y = 0.85;
+// ── Focus-camera framing ──
+const DEG = Math.PI / 180;
+/** Bounding radius of a cottage plus its garden plot, with a little margin. */
+const HOUSE_FRAME_RADIUS = 1.75;
+const HOUSE_FOCUS_ELEV = 20 * DEG;
+/** Slight sideways swing so the shot is 3/4 rather than dead-on. */
+const HOUSE_FOCUS_SIDE = 14 * DEG;
+/** Mid-wall, not the ridge — aiming at the roof peak is what tipped the camera
+ *  down onto the roof. */
+const HOUSE_TARGET_Y = 0.42;
+
+/** Castle + moat: radius 5.85 out, ~3.5 tall. */
+const CASTLE_FRAME_RADIUS = 6.9;
+const CASTLE_FOCUS_ELEV = 26 * DEG;
+const CASTLE_TARGET_Y = 1.6;
+
+/**
+ * Distance at which a sphere of `radius` fits inside BOTH the vertical and the
+ * horizontal field of view.
+ *
+ * The old framing used a fixed 3.95-unit pull-back. On a 16:9 desktop that is
+ * roughly right, but a portrait phone (aspect ~0.46) has a horizontal half-FOV
+ * of only ~9°, so the same distance showed barely 1.25 world units across —
+ * narrower than the 2.1-wide house. Hence "the roof fills the screen".
+ */
+const framingDistance = (camera, radius) => {
+  const halfV = (camera.fov * DEG) / 2;
+  const halfH = Math.atan(Math.tan(halfV) * camera.aspect);
+  return Math.max(radius / Math.tan(halfV), radius / Math.tan(halfH));
+};
 
 /**
  * Clouds and balloon envelopes get their own, rounder sphere.
@@ -62,7 +90,7 @@ const _sp = new THREE.Vector3();
 const _sq = new THREE.Quaternion();
 const _ss = new THREE.Vector3();
 
-const SkyDecor = React.memo(function SkyDecor({ islandRadius }) {
+const SkyDecor = React.memo(function SkyDecor({ islandRadius, showBalloons = true }) {
   const spread = Math.max(150, islandRadius * 5);
 
   const bodies = useMemo(() => {
@@ -82,7 +110,7 @@ const SkyDecor = React.memo(function SkyDecor({ islandRadius }) {
       });
     }
 
-    for (let i = 0; i < QUALITY.balloonCount; i++) {
+    for (let i = 0; showBalloons && i < QUALITY.balloonCount; i++) {
       list.push({
         kind: 'balloon',
         x: (seed(i + 100) - 0.5) * spread,
@@ -97,7 +125,7 @@ const SkyDecor = React.memo(function SkyDecor({ islandRadius }) {
     }
 
     return list;
-  }, [spread]);
+  }, [spread, showBalloons]);
 
   /** Flat instance list so the frame loop is a plain walk over offsets. */
   const plan = useMemo(() => {
@@ -405,7 +433,17 @@ export const Experience = ({
   isNightMode,
   selectedRepo,
   onSelectRepo,
+  visibleProps = {},
 }) => {
+  const show = {
+    waterTower: true,
+    windmill: true,
+    wagon: true,
+    stall: true,
+    characters: true,
+    balloons: true,
+    ...visibleProps,
+  };
   const controlsRef = useRef();
   const { camera } = useThree();
   const keys = useRef({ w: false, a: false, s: false, d: false });
@@ -421,6 +459,10 @@ export const Experience = ({
 
   // Decorative scenery — no repo data involved.
   const props = useMemo(() => computeProps(layout), [layout]);
+  const visibleScenery = useMemo(
+    () => props.filter((p) => show[p.kind] !== false),
+    [props, show.waterTower, show.windmill, show.wagon, show.stall]
+  );
   useEffect(() => {
     if (!import.meta.env.DEV) return;
     const problems = verifyProps(props, layout);
@@ -499,20 +541,48 @@ export const Experience = ({
    * band between two rings rather than inside the ring below.
    */
   const handleBuildingClick = (repo, buildingPosition) => {
-    setSelectedRepo(repo);
+    setSelectedRepo({ kind: 'repo', repo });
 
     const [hx, , hz] = buildingPosition;
-    const radius = Math.hypot(hx, hz) || 1;
-    const nx = hx / radius;
-    const nz = hz / radius;
+    const r = Math.hypot(hx, hz) || 1;
+    // The door faces the castle, so "in front" is the inward side.
+    const inX = -hx / r;
+    const inZ = -hz / r;
+    const tanX = -inZ;
+    const tanZ = inX;
+
+    const dist = framingDistance(camera, HOUSE_FRAME_RADIUS);
+
+    // Cap how far inward the camera may travel so a narrow viewport can't push
+    // it through the ring road and into the castle; the leftover distance goes
+    // into height instead, which just makes the shot more top-down.
+    const maxHoriz = Math.max(1.6, r - (RING_ROAD_OUTER_R + 1.2));
+    const horiz = Math.min(dist * Math.cos(HOUSE_FOCUS_ELEV), maxHoriz);
+    const vert = Math.sqrt(Math.max(0.6, dist * dist - horiz * horiz));
+
+    const c = Math.cos(HOUSE_FOCUS_SIDE);
+    const s = Math.sin(HOUSE_FOCUS_SIDE);
+    const dirX = inX * c + tanX * s;
+    const dirZ = inZ * c + tanZ * s;
 
     flyTo(
-      {
-        x: nx * (radius - FOCUS_BACK) - nz * FOCUS_SIDE,
-        y: FOCUS_HEIGHT,
-        z: nz * (radius - FOCUS_BACK) + nx * FOCUS_SIDE,
-      },
-      { x: hx, y: FOCUS_TARGET_Y, z: hz }
+      { x: hx + dirX * horiz, y: HOUSE_TARGET_Y + vert, z: hz + dirZ * horiz },
+      { x: hx, y: HOUSE_TARGET_Y, z: hz }
+    );
+  };
+
+  /** Castle click — frame the whole keep plus its moat. */
+  const handleCastleClick = () => {
+    setSelectedRepo({ kind: 'castle' });
+
+    const dist = framingDistance(camera, CASTLE_FRAME_RADIUS);
+    const horiz = dist * Math.cos(CASTLE_FOCUS_ELEV);
+    const vert = dist * Math.sin(CASTLE_FOCUS_ELEV);
+    const d = Math.SQRT1_2; // approach on the same diagonal as the home view
+
+    flyTo(
+      { x: d * horiz, y: CASTLE_TARGET_Y + vert, z: d * horiz },
+      { x: 0, y: CASTLE_TARGET_Y, z: 0 }
     );
   };
 
@@ -623,20 +693,29 @@ export const Experience = ({
         />
 
         {/* ── CENTRAL CASTLE, MOAT & BRIDGES ── */}
-        <GitVilleTownHall position={[0, 0, 0]} username={user?.username} isNightMode={isNightMode} />
+        <GitVilleTownHall
+          position={[0, 0, 0]}
+          username={user?.username}
+          isNightMode={isNightMode}
+          onCastleClick={handleCastleClick}
+        />
 
         {/* ── ONE COTTAGE PER REPO, IN CONCENTRIC QUADRANT RINGS ── */}
         <VillageQuadrants
           layout={layout}
           props={props}
+          showCharacters={show.characters}
           handleBuildingClick={handleBuildingClick}
           setHoveredRepo={setHoveredRepo}
         />
 
-        {/* ── DECORATIVE SCENERY: water tower, windmill, wagons ── */}
-        <VillageProps props={props} />
+        {/* ── DECORATIVE SCENERY ──
+            Hidden props are filtered out of what gets *rendered*, but the full
+            list still drives tree/lamp avoidance, so toggling one off doesn't
+            make the surrounding scenery jump around. */}
+        <VillageProps props={visibleScenery} />
 
-        <SkyDecor islandRadius={islandRadius} />
+        <SkyDecor islandRadius={islandRadius} showBalloons={show.balloons} />
         <Birds islandRadius={islandRadius} />
         {isNightMode && <NightSky islandRadius={islandRadius} />}
       </group>

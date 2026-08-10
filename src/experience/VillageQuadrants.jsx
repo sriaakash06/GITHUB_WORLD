@@ -107,6 +107,7 @@ const _swings = [];
 export const VillageQuadrants = React.memo(function VillageQuadrants({
   layout,
   props: propList = [],
+  showCharacters = true,
   handleBuildingClick,
   setHoveredRepo,
 }) {
@@ -259,9 +260,23 @@ export const VillageQuadrants = React.memo(function VillageQuadrants({
   }, [layout, placements, village, ringRadii, islandRadius]);
 
   // ── Villagers: one shared useFrame drives every instance ────────
+  /**
+   * On low-power devices only a share of the houses get a villager, sampled at
+   * an even stride so they stay spread across the whole village rather than
+   * clustering in one quadrant. (This used to be an all-or-nothing boolean,
+   * which is why mobile had none at all.)
+   */
+  const villagerHouses = useMemo(() => {
+    const frac = QUALITY.villagerFraction;
+    if (frac >= 1 || !placements.length) return placements;
+    const want = Math.max(1, Math.round(placements.length * frac));
+    const stride = placements.length / want;
+    return Array.from({ length: want }, (_, k) => placements[Math.floor(k * stride)]);
+  }, [placements]);
+
   const villagers = useMemo(
     () =>
-      placements.map((h) => {
+      villagerHouses.map((h) => {
         const [hx, , hz] = h.position;
         const t = h.rotationY;
         // The house's local +X is tangential, its local +Z points at the castle.
@@ -282,7 +297,7 @@ export const VillageQuadrants = React.memo(function VillageQuadrants({
           palette: VILLAGER_PALETTES[h.index % VILLAGER_PALETTES.length],
         };
       }),
-    [placements]
+    [villagerHouses]
   );
 
   /**
@@ -407,7 +422,7 @@ export const VillageQuadrants = React.memo(function VillageQuadrants({
   }, [villagerRig, dogRig, allVillagers, dogs]);
 
   useFrame((state) => {
-    if (!QUALITY.villagers) return;
+    if (!showCharacters) return;
     const time = state.clock.elapsedTime;
 
     /**
@@ -437,12 +452,23 @@ export const VillageQuadrants = React.memo(function VillageQuadrants({
           for (const part of group.parts) {
             let local = part.local;
             if (part.swing) {
-              // Pivot at the top of the limb: rotate the offset from the pivot.
+              // Rotate the part's offset from its pivot, so a boot swings on
+              // the hip's arc rather than its own.
               const ang = part.swing * _swings[c];
               _e2.set(0, 0, ang);
               _q2.setFromEuler(_e2);
-              _v2.set(0, -part.s[1] / 2, 0).applyQuaternion(_q2);
-              _p2.set(part.p[0] + _v2.x, part.pivotY + _v2.y, part.p[2] + _v2.z);
+              _v2
+                .set(
+                  part.p[0] - part.pivot[0],
+                  part.p[1] - part.pivot[1],
+                  part.p[2] - part.pivot[2]
+                )
+                .applyQuaternion(_q2);
+              _p2.set(
+                part.pivot[0] + _v2.x,
+                part.pivot[1] + _v2.y,
+                part.pivot[2] + _v2.z
+              );
               _s2.set(part.s[0], part.s[1], part.s[2]);
               local = _localM.compose(_p2, _q2, _s2);
             }
@@ -533,8 +559,7 @@ export const VillageQuadrants = React.memo(function VillageQuadrants({
       {/* ── Villagers (all animated from a single useFrame) ── */}
       {/* ── Villagers: torso / limbs / head / hat / belt / eyes, grouped by
              geometry+material so extra detail costs instances, not draw calls ── */}
-      {QUALITY.villagers &&
-        allVillagers.length > 0 &&
+      {showCharacters && allVillagers.length > 0 &&
         villagerRig.map((group, g) => (
           <instancedMesh
             key={`v-${group.key}-${allVillagers.length}`}
@@ -547,8 +572,7 @@ export const VillageQuadrants = React.memo(function VillageQuadrants({
         ))}
 
       {/* ── Dogs roaming near a few houses (same frame loop as the villagers) ── */}
-      {QUALITY.villagers &&
-        dogs.length > 0 &&
+      {showCharacters && dogs.length > 0 &&
         dogRig.map((group, g) => (
           <instancedMesh
             key={`d-${group.key}-${dogs.length}`}

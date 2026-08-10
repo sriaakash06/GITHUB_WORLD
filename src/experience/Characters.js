@@ -50,8 +50,8 @@ export const VILLAGER_PARTS = [
   { geo: 'capsule', mat: 'cloth', role: 'pants', p: [0, 0.06, 0.042], s: [0.055, 0.12, 0.055], swing: 1 },
   { geo: 'capsule', mat: 'cloth', role: 'pants', p: [0, 0.06, -0.042], s: [0.055, 0.12, 0.055], swing: -1 },
   // Boots, swinging with their leg.
-  { geo: 'box', mat: 'detail', role: 'boots', p: [0.012, 0.022, 0.042], s: [0.085, 0.045, 0.062], swing: 1 },
-  { geo: 'box', mat: 'detail', role: 'boots', p: [0.012, 0.022, -0.042], s: [0.085, 0.045, 0.062], swing: -1 },
+  { geo: 'box', mat: 'detail', role: 'boots', p: [0.012, 0.022, 0.042], s: [0.085, 0.045, 0.062], swing: 1, pivot: [0, 0.12, 0.042] },
+  { geo: 'box', mat: 'detail', role: 'boots', p: [0.012, 0.022, -0.042], s: [0.085, 0.045, 0.062], swing: -1, pivot: [0, 0.12, -0.042] },
 
   // Torso tapers outward toward the shoulders.
   { geo: 'taper', mat: 'cloth', role: 'shirt', p: [0, 0.215, 0], s: [0.15, 0.19, 0.13] },
@@ -61,8 +61,8 @@ export const VILLAGER_PARTS = [
   // Arms counter-swing against the legs.
   { geo: 'capsule', mat: 'cloth', role: 'shirt', p: [0, 0.235, 0.088], s: [0.048, 0.15, 0.048], swing: -0.7 },
   { geo: 'capsule', mat: 'cloth', role: 'shirt', p: [0, 0.235, -0.088], s: [0.048, 0.15, 0.048], swing: 0.7 },
-  { geo: 'sphere', mat: 'skin', role: 'skin', p: [0, 0.163, 0.088], s: [0.05, 0.05, 0.05], swing: -0.7 },
-  { geo: 'sphere', mat: 'skin', role: 'skin', p: [0, 0.163, -0.088], s: [0.05, 0.05, 0.05], swing: 0.7 },
+  { geo: 'sphere', mat: 'skin', role: 'skin', p: [0, 0.163, 0.088], s: [0.05, 0.05, 0.05], swing: -0.7, pivot: [0, 0.31, 0.088] },
+  { geo: 'sphere', mat: 'skin', role: 'skin', p: [0, 0.163, -0.088], s: [0.05, 0.05, 0.05], swing: 0.7, pivot: [0, 0.31, -0.088] },
 
   // Neck, then head — the gap between them is the point.
   { geo: 'cyl', mat: 'skin', role: 'skin', p: [0, 0.325, 0], s: [0.058, 0.045, 0.058] },
@@ -149,8 +149,10 @@ export function buildRig(parts) {
     group.parts.push({
       ...part,
       local: new THREE.Matrix4().compose(pos, quat, scl),
-      /** Pivot for swinging limbs: the top of the part. */
-      pivotY: part.p[1] + part.s[1] / 2,
+      /** Pivot for swinging limbs. Defaults to the top of the part, but a
+       *  boot must swing from the hip and a hand from the shoulder, or they
+       *  travel on a shorter arc than the limb and visibly detach. */
+      pivot: part.pivot || [part.p[0], part.p[1] + part.s[1] / 2, part.p[2]],
     });
   }
 

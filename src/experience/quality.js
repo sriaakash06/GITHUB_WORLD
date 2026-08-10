@@ -37,12 +37,14 @@ export const QUALITY = IS_LOW_POWER
       castleTorchLights: false,
       sphereSegments: [5, 3],
       radialSegments: 5,
-      villagers: false,
+      /** Fraction of houses that get a villager. 0 would hide them entirely —
+       *  mobile should get fewer, not none. */
+      villagerFraction: 0.35,
       cloudCount: 5,
       balloonCount: 3,
       birdCount: 5,
       dogCount: 2,
-      roadVillagers: 0, // villagers are off entirely on this tier
+      roadVillagers: 2,
       starCount: 220,
       ringSegments: 48,
     }
@@ -57,7 +59,7 @@ export const QUALITY = IS_LOW_POWER
       castleTorchLights: true,
       sphereSegments: [6, 4],
       radialSegments: 6,
-      villagers: true,
+      villagerFraction: 1,
       cloudCount: 12,
       balloonCount: 7,
       birdCount: 9,

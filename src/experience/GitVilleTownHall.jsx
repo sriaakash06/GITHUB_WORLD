@@ -174,7 +174,7 @@ const Flag = ({ position, color, poleHeight = 2.5 }) => (
 // Torch bracket on wall.
 // `light` is opt-in: every torch glows via emissive, but only a few carry a
 // real point light, and only at night — 15 dynamic lights tanked the frame rate.
-const Torch = ({ position, rotation = [0, 0, 0], light = false }) => (
+const Torch = ({ position, rotation = [0, 0, 0], light = false, lit = true }) => (
   <group position={position} rotation={rotation}>
     {/* Bracket */}
     <mesh castShadow>
@@ -185,9 +185,10 @@ const Torch = ({ position, rotation = [0, 0, 0], light = false }) => (
     <mesh position={[0, 0.35, 0]}>
       <sphereGeometry args={[0.12, 5, 4]} />
       <meshStandardMaterial
-        color="#ff8800"
-        emissive="#ff6600"
-        emissiveIntensity={2.5}
+        color={lit ? '#ff8800' : '#6b6560'}
+        emissive={lit ? '#ff6600' : '#000000'}
+        emissiveIntensity={lit ? 2.5 : 0}
+        toneMapped={!lit}
         flatShading
       />
     </mesh>
@@ -306,7 +307,7 @@ export const MoatWaterRing = ({ innerRadius = 1.95, outerRadius = 3.45 }) => (
     {/* Water Ring surface.
         thetaStart/thetaLength are spelled out rather than left to RingGeometry's
         defaults so the full 360° sweep is obvious and can't drift. */}
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]} receiveShadow>
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.026, 0]} receiveShadow>
       <ringGeometry args={[innerRadius, outerRadius, 96, 1, 0, Math.PI * 2]} />
       <meshStandardMaterial
         color="#4db8ff"
@@ -322,7 +323,7 @@ export const MoatWaterRing = ({ innerRadius = 1.95, outerRadius = 3.45 }) => (
     </mesh>
     {/* Moat bed, just under the water so the ring reads as depth rather than
         a painted-on disc. */}
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0]} receiveShadow>
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.008, 0]} receiveShadow>
       <ringGeometry args={[innerRadius - 0.1, outerRadius + 0.1, 96, 1, 0, Math.PI * 2]} />
       <meshStandardMaterial color="#194866" roughness={0.9} flatShading side={THREE.DoubleSide} />
     </mesh>
@@ -379,7 +380,12 @@ export const PlankBridge = ({ position, rotation = [0, 0, 0], length = 1.6, widt
 // MAIN CASTLE COMPONENT
 // ═══════════════════════════════════════════════════════════════
 
-export default function GitVilleTownHall({ position = [0, 0, 0], username, isNightMode }) {
+export default function GitVilleTownHall({
+  position = [0, 0, 0],
+  username,
+  isNightMode,
+  onCastleClick,
+}) {
   const [hovered, setHovered] = useState(false);
   const groupRef = useRef();
 
@@ -445,13 +451,11 @@ export default function GitVilleTownHall({ position = [0, 0, 0], username, isNig
           document.body.style.cursor = 'default';
         }}
         onPointerUp={(e) => {
+          if (e.button !== 0) return;
           e.stopPropagation();
-          if (!username) return;
-          window.open(
-            `https://github.com/${encodeURIComponent(username)}`,
-            '_blank',
-            'noopener,noreferrer'
-          );
+          // Focus the castle and open the profile panel; the panel carries the
+          // link out to GitHub rather than opening a tab on every stray click.
+          onCastleClick?.();
         }}
       >
         {/* ── CASTLE PLATFORM ──
@@ -526,45 +530,48 @@ export default function GitVilleTownHall({ position = [0, 0, 0], username, isNig
             left a bare 2.9-wide hole reading as a missing wall, so the opening
             now gets a real gate: stone lintel, arched head and two timber
             leaves with iron banding. */}
+        {/* The pillars sit at x = ±1.45 and are 0.6 wide, so the clear opening
+            is x ∈ [−1.15, 1.15]. Everything below is sized to that, and the
+            lintel tucks under the pillar caps (which start at y = 3.6). */}
         <group position={[0, 0.5, outerRm]}>
           {/* Lintel spanning the pillars, with a crenellated cap */}
-          <mesh position={[0, 3.75, 0]} castShadow receiveShadow>
-            <boxGeometry args={[3.7, 0.55, 0.75]} />
+          <mesh position={[0, 3.35, 0]} castShadow receiveShadow>
+            <boxGeometry args={[3.4, 0.45, 0.75]} />
             <meshStandardMaterial color={PALETTE.stone} roughness={0.85} flatShading />
           </mesh>
-          {[-1.1, 0, 1.1].map((x) => (
-            <mesh key={`gate-merlon-${x}`} position={[x, 4.28, 0]} castShadow>
-              <boxGeometry args={[0.55, 0.5, 0.6]} />
+          {[-0.7, 0, 0.7].map((x) => (
+            <mesh key={`gate-merlon-${x}`} position={[x, 3.8, 0]} castShadow>
+              <boxGeometry args={[0.5, 0.45, 0.6]} />
               <meshStandardMaterial color={PALETTE.stoneDark} roughness={0.9} flatShading />
             </mesh>
           ))}
 
           {/* Arched head behind the doors so the opening has depth */}
-          <Arch position={[0, 0, -0.05]} width={2.5} height={3.4} depth={0.85} />
+          <Arch position={[0, 0, -0.05]} width={2.3} height={3.05} depth={0.85} />
 
           {/* Two timber leaves closing the span */}
           {[-1, 1].map((side) => (
-            <group key={`gate-leaf-${side}`} position={[side * 0.72, 0, 0.16]}>
-              <mesh position={[0, 1.55, 0]} castShadow receiveShadow>
-                <boxGeometry args={[1.4, 3.1, 0.22]} />
+            <group key={`gate-leaf-${side}`} position={[side * 0.575, 0, 0.16]}>
+              <mesh position={[0, 1.52, 0]} castShadow receiveShadow>
+                <boxGeometry args={[1.14, 3.04, 0.22]} />
                 <meshStandardMaterial color="#5a3f29" roughness={0.9} flatShading />
               </mesh>
               {/* Vertical planking */}
-              {[-0.45, -0.15, 0.15, 0.45].map((px) => (
-                <mesh key={`plank-${px}`} position={[px, 1.55, 0.13]} castShadow>
-                  <boxGeometry args={[0.26, 3.0, 0.06]} />
+              {[-0.36, -0.12, 0.12, 0.36].map((px) => (
+                <mesh key={`plank-${px}`} position={[px, 1.52, 0.13]} castShadow>
+                  <boxGeometry args={[0.21, 2.94, 0.06]} />
                   <meshStandardMaterial color="#6b4a2f" roughness={0.9} flatShading />
                 </mesh>
               ))}
               {/* Iron bands + ring handle */}
-              {[0.75, 2.35].map((by) => (
+              {[0.72, 2.3].map((by) => (
                 <mesh key={`band-${by}`} position={[0, by, 0.19]} castShadow>
-                  <boxGeometry args={[1.34, 0.18, 0.07]} />
+                  <boxGeometry args={[1.08, 0.18, 0.07]} />
                   <meshStandardMaterial color="#3f4247" roughness={0.5} metalness={0.6} flatShading />
                 </mesh>
               ))}
-              <mesh position={[-side * 0.5, 1.55, 0.24]} castShadow>
-                <sphereGeometry args={[0.13, 6, 5]} />
+              <mesh position={[-side * 0.4, 1.52, 0.24]} castShadow>
+                <sphereGeometry args={[0.12, 6, 5]} />
                 <meshStandardMaterial color="#3f4247" roughness={0.45} metalness={0.6} flatShading />
               </mesh>
             </group>
@@ -598,12 +605,13 @@ export default function GitVilleTownHall({ position = [0, 0, 0], username, isNig
               key={`outer-torch-${i}`}
               position={[torchR * Math.cos(angle), 2.2, torchR * Math.sin(angle)]}
               rotation={[0, Math.PI / 2 - angle, 0]}
+              lit={isNightMode}
             />
           );
         })}
 
-        <Torch position={[-1.45, 2.2, outerRm + 0.35]} light={isNightMode && QUALITY.castleTorchLights} />
-        <Torch position={[1.45, 2.2, outerRm + 0.35]} light={isNightMode && QUALITY.castleTorchLights} />
+        <Torch position={[-1.45, 2.2, outerRm + 0.35]} light={isNightMode && QUALITY.castleTorchLights} lit={isNightMode} />
+        <Torch position={[1.45, 2.2, outerRm + 0.35]} light={isNightMode && QUALITY.castleTorchLights} lit={isNightMode} />
 
         {/* ── CASTLE FOUNDATION ── */}
         <mesh position={[0, 0.8, 0]} castShadow receiveShadow>
@@ -692,14 +700,14 @@ export default function GitVilleTownHall({ position = [0, 0, 0], username, isNig
         {/* ── WALL TORCHES ── */}
         {/* Wall torches glow via emissive only — the night light budget is spent
             on the gate torches above and the street lamps. */}
-        <Torch position={[-3.5, 3.5, towerR + 0.35]} />
-        <Torch position={[3.5, 3.5, towerR + 0.35]} />
-        <Torch position={[-2.5, 3.5, -towerR - 0.35]} rotation={[0, Math.PI, 0]} />
-        <Torch position={[2.5, 3.5, -towerR - 0.35]} rotation={[0, Math.PI, 0]} />
-        <Torch position={[-towerR - 0.35, 3.5, -2]} rotation={[0, -Math.PI / 2, 0]} />
-        <Torch position={[-towerR - 0.35, 3.5, 2]} rotation={[0, -Math.PI / 2, 0]} />
-        <Torch position={[towerR + 0.35, 3.5, -2]} rotation={[0, Math.PI / 2, 0]} />
-        <Torch position={[towerR + 0.35, 3.5, 2]} rotation={[0, Math.PI / 2, 0]} />
+        <Torch position={[-3.5, 3.5, towerR + 0.35]} lit={isNightMode} />
+        <Torch position={[3.5, 3.5, towerR + 0.35]} lit={isNightMode} />
+        <Torch position={[-2.5, 3.5, -towerR - 0.35]} rotation={[0, Math.PI, 0]} lit={isNightMode} />
+        <Torch position={[2.5, 3.5, -towerR - 0.35]} rotation={[0, Math.PI, 0]} lit={isNightMode} />
+        <Torch position={[-towerR - 0.35, 3.5, -2]} rotation={[0, -Math.PI / 2, 0]} lit={isNightMode} />
+        <Torch position={[-towerR - 0.35, 3.5, 2]} rotation={[0, -Math.PI / 2, 0]} lit={isNightMode} />
+        <Torch position={[towerR + 0.35, 3.5, -2]} rotation={[0, Math.PI / 2, 0]} lit={isNightMode} />
+        <Torch position={[towerR + 0.35, 3.5, 2]} rotation={[0, Math.PI / 2, 0]} lit={isNightMode} />
 
         {/* ── FLAGS ── */}
         <Flag position={[cornerPositions[0][0], 11.5, cornerPositions[0][2]]} color="#e8832a" poleHeight={2.5} />

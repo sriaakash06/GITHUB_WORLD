@@ -7,6 +7,7 @@ import { HUD } from '../components/HUD';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { ErrorScreen } from '../components/ErrorScreen';
 import { RepoPanel } from '../components/RepoPanel';
+import { ProfilePanel } from '../components/ProfilePanel';
 import { useGitHubWorld } from '../hooks/useGitHubWorld';
 import { SKY_DAY, SKY_NIGHT } from '../experience/Constants';
 import { QUALITY, IS_LOW_POWER } from '../experience/quality';
@@ -22,8 +23,24 @@ export function World() {
 
   const [isNightMode, setIsNightMode] = useState(false);
   const [hoveredRepo, setHoveredRepo] = useState(null);
-  // Lifted out of <Experience> so the HTML details panel can read it.
-  const [selectedRepo, setSelectedRepo] = useState(null);
+  // Lifted out of <Experience> so the HTML panels can read it.
+  // null | { kind: 'repo', repo } | { kind: 'castle' }
+  const [selection, setSelection] = useState(null);
+
+  /**
+   * Decorative-only visibility switches. Houses, castle, roads, moat and lamps
+   * are deliberately not in here — they're the world itself, not decoration.
+   */
+  const [visibleProps, setVisibleProps] = useState({
+    waterTower: true,
+    windmill: true,
+    wagon: true,
+    stall: true,
+    characters: true,
+    balloons: true,
+  });
+  const toggleProp = (key) =>
+    setVisibleProps((v) => ({ ...v, [key]: !v[key] }));
 
   // Filtering state
   const [searchQuery, setSearchQuery] = useState('');
@@ -36,7 +53,7 @@ export function World() {
     setSelectedLanguage('');
     setMinStars(0);
     setHoveredRepo(null);
-    setSelectedRepo(null);
+    setSelection(null);
   }, [username]);
 
   useEffect(() => {
@@ -88,15 +105,22 @@ export function World() {
           isCinematic={isLoading}
           setHoveredRepo={setHoveredRepo}
           isNightMode={isNightMode}
-          selectedRepo={selectedRepo}
-          onSelectRepo={setSelectedRepo}
+          selectedRepo={selection}
+          onSelectRepo={setSelection}
+          visibleProps={visibleProps}
         />
       </Canvas>
 
       <RepoPanel
-        repo={selectedRepo}
+        repo={selection?.kind === 'repo' ? selection.repo : null}
         username={user?.username || username}
-        onClose={() => setSelectedRepo(null)}
+        onClose={() => setSelection(null)}
+      />
+
+      <ProfilePanel
+        open={selection?.kind === 'castle'}
+        user={user}
+        onClose={() => setSelection(null)}
       />
 
       {user && (
@@ -113,6 +137,8 @@ export function World() {
           setSelectedLanguage={setSelectedLanguage}
           minStars={minStars}
           setMinStars={setMinStars}
+          visibleProps={visibleProps}
+          onToggleProp={toggleProp}
         />
       )}
 
