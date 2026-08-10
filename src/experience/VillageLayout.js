@@ -18,6 +18,28 @@ export const CASTLE_MODEL_RADIUS = 13.5;
 /** World-space radius the castle actually occupies on the ground. */
 export const CASTLE_OUTER_R = CASTLE_MODEL_RADIUS * CASTLE_SCALE; // 4.05
 
+/** Corner-tower ring and courtyard floor height, in castle-model units. */
+export const CASTLE_TOWER_R = 5.5;
+const CASTLE_COURTYARD_Y = 1.145;
+
+/**
+ * Where the four tower guards stand — on the courtyard floor, just inside each
+ * corner tower, facing outward. World space, so they render at village scale
+ * rather than being shrunk by the castle group's own 0.3.
+ */
+export const GUARD_POSTS = [
+  [1, 1], [-1, 1], [-1, -1], [1, -1],
+].map(([sx, sz]) => {
+  const inset = 3.75; // model units from centre, clear of the tower footprint
+  const x = sx * inset * CASTLE_SCALE;
+  const z = sz * inset * CASTLE_SCALE;
+  return {
+    position: [x, CASTLE_COURTYARD_Y * CASTLE_SCALE, z],
+    // Local +X leads, so yaw = atan2(-forwardZ, forwardX) pointing outward.
+    rotY: Math.atan2(-z, x),
+  };
+});
+
 // ─────────────────────────────────────────────────────────────────
 // MOAT  (Fix 7 — derived from the castle so it is always concentric)
 // ─────────────────────────────────────────────────────────────────

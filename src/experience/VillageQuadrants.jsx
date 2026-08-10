@@ -11,6 +11,7 @@ import {
   RING_ROAD_OUTER_R,
   RING_ROAD_CENTER_R,
   ROAD_WIDTH,
+  GUARD_POSTS,
   verifyLayout,
 } from './VillageLayout';
 import {
@@ -35,6 +36,8 @@ import {
   DOG_PARTS,
   VILLAGER_PALETTES,
   DOG_PALETTES,
+  GUARD_PARTS,
+  GUARD_PALETTES,
 } from './Characters';
 
 const ROOF_COLORS = [
@@ -246,12 +249,17 @@ export const VillageQuadrants = React.memo(function VillageQuadrants({
   // ── Layout self-check: proves every repo got a legal, non-overlapping plot ──
   useEffect(() => {
     if (!import.meta.env.DEV) return;
-    const problems = verifyLayout(layout, placements.length);
+    // layout.count is the repo count that went IN; placements.length is what
+    // came out. Comparing placements against itself (as this used to) could
+    // never catch a mismatch.
+    const reposIn = layout.count;
+    const problems = verifyLayout(layout, reposIn);
     const instances =
       village.box.count + village.glass.count + village.metal.count +
       village.cyl.count + village.cone.count + village.sphere.count;
     console.log(
-      `[GitVille] ${placements.length} repos → ${placements.length} houses across ` +
+      `[GitVille] ${reposIn} repos → ${placements.length} houses` +
+        `${reposIn === placements.length ? ' (1:1 ✓)' : ' ⚠ MISMATCH'} across ` +
         `${ringRadii.length} ring(s) [${ringRadii.map((r) => r.toFixed(1)).join(', ')}], ` +
         `island r=${islandRadius.toFixed(1)}, ${instances} instances in 6 draw calls.`
     );
@@ -396,8 +404,21 @@ export const VillageQuadrants = React.memo(function VillageQuadrants({
   // ── Character rigs: one InstancedMesh per (geometry, material) pair ──
   const villagerRig = useMemo(() => buildRig(VILLAGER_PARTS), []);
   const dogRig = useMemo(() => buildRig(DOG_PARTS), []);
+  const guardRig = useMemo(() => buildRig(GUARD_PARTS), []);
   const villagerMeshes = useRef([]);
   const dogMeshes = useRef([]);
+  const guardMeshes = useRef([]);
+
+  /** Four static sentries, one per corner tower. */
+  const guards = useMemo(
+    () =>
+      GUARD_POSTS.map((g, i) => ({
+        ...g,
+        phase: i * 1.7,
+        palette: GUARD_PALETTES[i % GUARD_PALETTES.length],
+      })),
+    []
+  );
 
   useLayoutEffect(() => {
     const col = new THREE.Color();
@@ -419,10 +440,10 @@ export const VillageQuadrants = React.memo(function VillageQuadrants({
 
     paint(villagerRig, villagerMeshes, allVillagers);
     paint(dogRig, dogMeshes, dogs);
-  }, [villagerRig, dogRig, allVillagers, dogs]);
+    paint(guardRig, guardMeshes, guards);
+  }, [villagerRig, dogRig, guardRig, allVillagers, dogs, guards]);
 
   useFrame((state) => {
-    if (!showCharacters) return;
     const time = state.clock.elapsedTime;
 
     /**
@@ -479,7 +500,9 @@ export const VillageQuadrants = React.memo(function VillageQuadrants({
       });
     };
 
-    drive(villagerRig, villagerMeshes, allVillagers, (v, t) => {
+    // Guards belong to the castle, so the "Villagers & Animals" toggle
+    // deliberately does not hide them.
+    if (showCharacters) drive(villagerRig, villagerMeshes, allVillagers, (v, t) => {
       const phase = t * v.speed + v.phase;
       const offset = Math.sin(phase) * v.sweep;
       const dir = Math.cos(phase) >= 0 ? 1 : -1;
@@ -493,7 +516,16 @@ export const VillageQuadrants = React.memo(function VillageQuadrants({
       };
     });
 
-    drive(dogRig, dogMeshes, dogs, (dog, t) => {
+    // Guards hold their post — only a slow breathing bob, no walk cycle.
+    drive(guardRig, guardMeshes, guards, (g, t) => ({
+      x: g.position[0],
+      z: g.position[2],
+      yaw: g.rotY,
+      bob: g.position[1] + Math.sin(t * 0.7 + g.phase) * 0.008,
+      swing: 0,
+    }));
+
+    if (showCharacters) drive(dogRig, dogMeshes, dogs, (dog, t) => {
       const a = t * dog.speed + dog.phase;
       return {
         x: dog.cx + Math.cos(a) * dog.loopR,
@@ -583,6 +615,18 @@ export const VillageQuadrants = React.memo(function VillageQuadrants({
             frustumCulled={false}
           />
         ))}
+
+      {/* ── Castle guards: one per corner tower, always on ── */}
+      {guardRig.map((group, g) => (
+        <instancedMesh
+          key={`g-${group.key}-${guards.length}`}
+          ref={(el) => (guardMeshes.current[g] = el)}
+          args={[group.geometry, group.material, guards.length * group.parts.length]}
+          castShadow
+          receiveShadow
+          frustumCulled={false}
+        />
+      ))}
 
       {/* ── Invisible hover/click proxies, one per house ── */}
       <InstancedBatch

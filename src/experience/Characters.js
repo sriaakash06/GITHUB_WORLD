@@ -102,6 +102,52 @@ export const DOG_PARTS = [
   { geo: 'capsule', mat: 'fur', role: 'fur', p: [-0.115, 0.075, -0.062], s: [0.055, 0.15, 0.055], swing: 1 },
 ];
 
+// ── Castle guard ─────────────────────────────────────────────────
+// Same skeleton and proportions as the villager, restyled: domed helmet with a
+// nose guard instead of the straw hat, muted steel instead of coloured cloth,
+// and a spear planted at their side. Nothing swings — they stand a post.
+export const GUARD_PARTS = [
+  { geo: 'capsule', mat: 'cloth', role: 'greaves', p: [0, 0.06, 0.042], s: [0.055, 0.12, 0.055] },
+  { geo: 'capsule', mat: 'cloth', role: 'greaves', p: [0, 0.06, -0.042], s: [0.055, 0.12, 0.055] },
+  { geo: 'box', mat: 'detail', role: 'boots', p: [0.012, 0.022, 0.042], s: [0.085, 0.045, 0.062] },
+  { geo: 'box', mat: 'detail', role: 'boots', p: [0.012, 0.022, -0.042], s: [0.085, 0.045, 0.062] },
+
+  // Mail torso with a tabard band and a shoulder yoke.
+  { geo: 'taper', mat: 'detail', role: 'mail', p: [0, 0.215, 0], s: [0.15, 0.19, 0.13] },
+  { geo: 'box', mat: 'cloth', role: 'tabard', p: [0, 0.2, 0.068], s: [0.075, 0.16, 0.012] },
+  { geo: 'cyl', mat: 'detail', role: 'steel', p: [0, 0.3, 0], s: [0.175, 0.035, 0.155] },
+  { geo: 'box', mat: 'detail', role: 'belt', p: [0, 0.14, 0], s: [0.158, 0.028, 0.138] },
+
+  // Arms at rest — the spear side is held slightly forward.
+  { geo: 'capsule', mat: 'detail', role: 'mail', p: [0.02, 0.235, 0.088], s: [0.048, 0.15, 0.048] },
+  { geo: 'capsule', mat: 'detail', role: 'mail', p: [0, 0.235, -0.088], s: [0.048, 0.15, 0.048] },
+  { geo: 'sphere', mat: 'skin', role: 'skin', p: [0.02, 0.163, 0.088], s: [0.05, 0.05, 0.05] },
+  { geo: 'sphere', mat: 'skin', role: 'skin', p: [0, 0.163, -0.088], s: [0.05, 0.05, 0.05] },
+
+  { geo: 'cyl', mat: 'skin', role: 'skin', p: [0, 0.325, 0], s: [0.058, 0.045, 0.058] },
+  { geo: 'sphere', mat: 'skin', role: 'skin', p: [0, 0.41, 0], s: [0.15, 0.155, 0.15] },
+  { geo: 'sphere', mat: 'detail', role: 'eye', p: [0.066, 0.427, 0.036], s: [0.026, 0.03, 0.026] },
+  { geo: 'sphere', mat: 'detail', role: 'eye', p: [0.066, 0.427, -0.036], s: [0.026, 0.03, 0.026] },
+
+  // Helmet: dome, brow band, nose guard, crest.
+  { geo: 'sphere', mat: 'detail', role: 'steel', p: [0, 0.452, 0], s: [0.172, 0.15, 0.172] },
+  { geo: 'cyl', mat: 'detail', role: 'steel', p: [0, 0.452, 0], s: [0.178, 0.035, 0.178] },
+  { geo: 'box', mat: 'detail', role: 'steel', p: [0.082, 0.425, 0], s: [0.022, 0.09, 0.035] },
+  { geo: 'cone', mat: 'cloth', role: 'plume', p: [0, 0.545, 0], s: [0.06, 0.09, 0.06] },
+
+  // Spear planted at the right side — taller than the guard, as asked.
+  { geo: 'cyl', mat: 'cloth', role: 'shaft', p: [0.05, 0.36, 0.135], s: [0.026, 0.72, 0.026] },
+  { geo: 'cone', mat: 'detail', role: 'steel', p: [0.05, 0.765, 0.135], s: [0.055, 0.13, 0.055] },
+];
+
+export const GUARD_PALETTES = [
+  {
+    mail: '#8d9298', steel: '#b3b9bf', greaves: '#5c6268', boots: '#33383d',
+    belt: '#3d3a35', tabard: '#8a4b45', plume: '#8a4b45', shaft: '#6b4a2f',
+    skin: '#e0b98d', eye: '#241f1c',
+  },
+];
+
 // ── Palettes ─────────────────────────────────────────────────────
 // Muted rather than saturated, and each role clearly separated in value so the
 // silhouette still reads when the whole figure is in shadow.

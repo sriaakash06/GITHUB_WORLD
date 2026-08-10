@@ -16,12 +16,18 @@ const API = 'https://api.github.com';
 const MAX_PAGES = 10;
 
 /**
- * Starred repos also become houses (existing behaviour). Set to false to show
- * only repos the user actually owns — that also drops one API call per visit,
- * which matters because unauthenticated GitHub requests are capped at
- * 60/hour per IP address.
+ * Whether starred repos also become houses.
+ *
+ * OFF, because starred repos belong to other people: including them made the
+ * village show 26 houses while the dashboard's "Total Repos" (which counts only
+ * owned repos) showed 25. One house per owned repo is the contract now.
+ * Turning this back on will re-introduce that mismatch unless `repoCount`
+ * below is changed to match.
+ *
+ * It also saves one API call per visit — unauthenticated GitHub requests are
+ * capped at 60/hour per IP.
  */
-export const INCLUDE_STARRED = true;
+export const INCLUDE_STARRED = false;
 
 /**
  * Always hit the network. GitHub responds with `Cache-Control: max-age=60`,

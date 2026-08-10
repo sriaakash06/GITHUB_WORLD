@@ -196,6 +196,67 @@ const Torch = ({ position, rotation = [0, 0, 0], light = false, lit = true }) =>
   </group>
 );
 
+/**
+ * Side entrance for the curtain wall — stone jambs, lintel and crenellation
+ * over a pair of banded timber leaves. Same material language as the main
+ * gatehouse, but without its twin towers, so the front stays the grand one.
+ *
+ * Sized to the 4-wide break the flanking wall segments leave (x ∈ [−2, 2]):
+ * jambs occupy ±1.2..2.0, leaving a 2.4 clear opening.
+ */
+const SideGate = () => (
+  <group>
+    {/* Jambs */}
+    {[-1, 1].map((s) => (
+      <mesh key={`jamb-${s}`} position={[s * 1.6, 2.1, 0]} castShadow receiveShadow>
+        <boxGeometry args={[0.8, 4.2, 0.9]} />
+        <meshStandardMaterial color={PALETTE.stone} roughness={0.85} flatShading />
+      </mesh>
+    ))}
+
+    {/* Lintel + merlons */}
+    <mesh position={[0, 4.45, 0]} castShadow receiveShadow>
+      <boxGeometry args={[4.0, 0.5, 1.0]} />
+      <meshStandardMaterial color={PALETTE.stoneDark} roughness={0.9} flatShading />
+    </mesh>
+    {[-1.2, 0, 1.2].map((x) => (
+      <mesh key={`sg-merlon-${x}`} position={[x, 4.95, 0]} castShadow>
+        <boxGeometry args={[0.7, 0.5, 0.85]} />
+        <meshStandardMaterial color={PALETTE.stone} roughness={0.85} flatShading />
+      </mesh>
+    ))}
+
+    {/* Arched recess so the opening reads as a tunnel, not a hole */}
+    <Arch position={[0, 0, -0.05]} width={2.4} height={3.5} depth={0.95} />
+
+    {/* Two timber leaves */}
+    {[-1, 1].map((side) => (
+      <group key={`sg-leaf-${side}`} position={[side * 0.6, 0, 0.2]}>
+        <mesh position={[0, 1.72, 0]} castShadow receiveShadow>
+          <boxGeometry args={[1.19, 3.44, 0.24]} />
+          <meshStandardMaterial color="#5a3f29" roughness={0.9} flatShading />
+        </mesh>
+        {[-0.38, -0.13, 0.13, 0.38].map((px) => (
+          <mesh key={`sg-plank-${px}`} position={[px, 1.72, 0.14]} castShadow>
+            <boxGeometry args={[0.22, 3.32, 0.06]} />
+            <meshStandardMaterial color="#6b4a2f" roughness={0.9} flatShading />
+          </mesh>
+        ))}
+        {[0.8, 2.6].map((by) => (
+          <mesh key={`sg-band-${by}`} position={[0, by, 0.2]} castShadow>
+            <boxGeometry args={[1.13, 0.18, 0.07]} />
+            <meshStandardMaterial color="#3f4247" roughness={0.5} metalness={0.6} flatShading />
+          </mesh>
+        ))}
+        <mesh position={[-side * 0.42, 1.72, 0.25]} castShadow>
+          <sphereGeometry args={[0.12, 6, 5]} />
+          <meshStandardMaterial color="#3f4247" roughness={0.45} metalness={0.6} flatShading />
+        </mesh>
+      </group>
+    ))}
+  </group>
+);
+
 // Arch shape for gatehouse
 const Arch = ({ position, width = 1.8, height = 2.8, depth = 1.2 }) => {
   const geo = useMemo(() => {
@@ -636,24 +697,47 @@ export default function GitVilleTownHall({
           />
         ))}
 
-        {/* ── CURTAIN WALLS ── */}
-        <CastleWall position={[-3.5, 0.5, towerR]} width={3} height={5} depth={0.6} />
-        <CastleWall position={[3.5, 0.5, towerR]} width={3} height={5} depth={0.6} />
-        <CastleWall position={[0, 0.5, -towerR]} width={9.5} height={5} depth={0.6} />
-        <CastleWall
-          position={[-towerR, 0.5, 0]}
-          rotation={[0, Math.PI / 2, 0]}
-          width={9.5}
-          height={5}
-          depth={0.6}
-        />
-        <CastleWall
-          position={[towerR, 0.5, 0]}
-          rotation={[0, Math.PI / 2, 0]}
-          width={9.5}
-          height={5}
-          depth={0.6}
-        />
+        {/* ── CURTAIN WALLS ──
+            All four sides are now split the same way — two 3-wide segments
+            leaving a 4-wide break in the middle. The +Z break holds the grand
+            gatehouse; the other three hold a SideGate, so the keep has an
+            entrance on every side instead of one. */}
+        {[
+          { rotY: 0, sign: 1, axis: 'z' }, // front (+Z) — gatehouse fills this
+          { rotY: Math.PI, sign: -1, axis: 'z' }, // back
+          { rotY: Math.PI / 2, sign: 1, axis: 'x' }, // right
+          { rotY: -Math.PI / 2, sign: -1, axis: 'x' }, // left
+        ].map(({ rotY, sign, axis }, i) => {
+          const along = axis === 'z' ? 'x' : 'z';
+          const seg = (offset) =>
+            axis === 'z'
+              ? [offset, 0.5, sign * towerR]
+              : [sign * towerR, 0.5, offset];
+          return (
+            <group key={`curtain-${i}`}>
+              <CastleWall
+                position={seg(-3.5)}
+                rotation={[0, axis === 'z' ? 0 : Math.PI / 2, 0]}
+                width={3}
+                height={5}
+                depth={0.6}
+              />
+              <CastleWall
+                position={seg(3.5)}
+                rotation={[0, axis === 'z' ? 0 : Math.PI / 2, 0]}
+                width={3}
+                height={5}
+                depth={0.6}
+              />
+              {/* The front break is filled by the gatehouse below instead. */}
+              {i > 0 && (
+                <group position={seg(0)} rotation={[0, rotY, 0]}>
+                  <SideGate />
+                </group>
+              )}
+            </group>
+          );
+        })}
 
         {/* ── GATEHOUSE ── */}
         <group position={[0, 0.5, towerR]}>
