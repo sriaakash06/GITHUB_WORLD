@@ -23,7 +23,6 @@ GITHUB_WORLD/
 ├── package.json   # Project dependencies
 └── .gitignore     # Git ignore rules
 ```
-
 ## 🛠️ Getting Started
 
 ### Prerequisites
