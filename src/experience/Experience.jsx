@@ -644,15 +644,15 @@ export const Experience = ({
       />
 
       {QUALITY.softShadows && <SoftShadows size={18} samples={8} focus={0} />}
-      {/* Night is deliberately dim: the street lamps are the light source now. */}
+      {/* Night lighting — clear, vibrant moonlight atmosphere so the entire village is well lit. */}
       <ambientLight
-        intensity={isNightMode ? 0.1 : 1.4}
-        color={isNightMode ? '#5d74ab' : '#ffd4a3'}
+        intensity={isNightMode ? 0.48 : 1.4}
+        color={isNightMode ? '#7088d4' : '#ffd4a3'}
       />
       <directionalLight
         position={[islandRadius * 1.4, islandRadius * 2.2, islandRadius]}
-        intensity={isNightMode ? 0.16 : 2.2}
-        color={isNightMode ? '#4a5c8f' : '#ffedcc'}
+        intensity={isNightMode ? 0.75 : 2.2}
+        color={isNightMode ? '#8aa6f7' : '#ffedcc'}
         castShadow={QUALITY.shadows}
         shadow-mapSize={[QUALITY.shadowMapSize, QUALITY.shadowMapSize]}
         shadow-camera-near={0.5}
@@ -665,13 +665,13 @@ export const Experience = ({
       />
       <directionalLight
         position={[-20, 30, -20]}
-        intensity={isNightMode ? 0.08 : 0.4}
-        color={isNightMode ? '#243052' : '#87CEEB'}
+        intensity={isNightMode ? 0.35 : 0.4}
+        color={isNightMode ? '#48639e' : '#87CEEB'}
       />
       <hemisphereLight
         skyColor={isNightMode ? SKY_NIGHT : '#87CEEB'}
-        groundColor={isNightMode ? '#050a12' : '#74cf4a'}
-        intensity={isNightMode ? 0.18 : 0.6}
+        groundColor={isNightMode ? '#1e2b3c' : '#74cf4a'}
+        intensity={isNightMode ? 0.5 : 0.6}
       />
 
       <group

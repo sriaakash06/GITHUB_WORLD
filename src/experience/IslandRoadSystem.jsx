@@ -34,7 +34,7 @@ const BULB_LOCAL = [0.29, 1.76, 0];
  * At the 1.76 bulb height that means a value near 1 lands at ~0.3 of a unit on
  * the road under it — invisible against ambient. ~5.5 is what actually reads.
  */
-const LAMP_LIGHT = { color: '#ffcc66', intensity: 5.5, distance: 7.5, decay: 2 };
+const LAMP_LIGHT = { color: '#ffd685', intensity: 9.5, distance: 12.0, decay: 1.8 };
 /**
  * Every lamp now carries its own light at night (was capped at 6, which is why
  * only the ring-road lamps by the castle had pools — those were the 6 that made
