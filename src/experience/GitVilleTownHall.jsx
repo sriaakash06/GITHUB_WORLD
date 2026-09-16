@@ -343,10 +343,61 @@ const Keep = ({ position }) => (
     {/* Keep windows */}
     {[0, Math.PI / 2, Math.PI, -Math.PI / 2].map((ry, i) => (
       <group key={`kw-${i}`} rotation={[0, ry, 0]}>
-        <mesh position={[0, 2.2, 2.02]} castShadow>
-          <boxGeometry args={[0.5, 0.8, 0.08]} />
-          <meshStandardMaterial color={PALETTE.window} roughness={0.1} metalness={0.2} flatShading />
-        </mesh>
+        {/* Ground Floor Medieval Entrance Door (South, East, North, West) */}
+        <group position={[0, 0, 2.01]}>
+          {/* Subtle recess shadow plate for embedded physical depth */}
+          <mesh position={[0, 1.25, -0.06]}>
+            <boxGeometry args={[1.65, 2.55, 0.1]} />
+            <meshStandardMaterial color="#0d0d15" roughness={0.95} flatShading />
+          </mesh>
+
+          {/* Heavy Stone Frame / Arch Trim around Doorway */}
+          <mesh position={[0, 1.25, 0.02]} castShadow receiveShadow>
+            <boxGeometry args={[1.7, 2.6, 0.12]} />
+            <meshStandardMaterial color={PALETTE.stoneDark} roughness={0.9} flatShading />
+          </mesh>
+
+          {/* Top Stone Lintel / Keystone Accent */}
+          <mesh position={[0, 2.55, 0.08]} castShadow>
+            <boxGeometry args={[1.9, 0.3, 0.22]} />
+            <meshStandardMaterial color={PALETTE.stone} roughness={0.8} flatShading />
+          </mesh>
+
+          {/* Arched Recess Opening */}
+          <Arch position={[0, 0, -0.02]} width={1.3} height={2.3} depth={0.25} />
+
+          {/* Double Medieval Wooden / Iron Doors */}
+          {[-1, 1].map((side) => (
+            <group key={`keep-door-leaf-${side}`} position={[side * 0.31, 0, 0.06]}>
+              {/* Main Dark Wood Leaf Body */}
+              <mesh position={[0, 1.1, 0]} castShadow receiveShadow>
+                <boxGeometry args={[0.6, 2.2, 0.12]} />
+                <meshStandardMaterial color="#422d1d" roughness={0.85} flatShading />
+              </mesh>
+              {/* Vertical Wood Planks */}
+              {[-0.18, 0.18].map((px) => (
+                <mesh key={`kplank-${px}`} position={[px, 1.1, 0.04]} castShadow>
+                  <boxGeometry args={[0.22, 2.14, 0.05]} />
+                  <meshStandardMaterial color="#543a26" roughness={0.85} flatShading />
+                </mesh>
+              ))}
+              {/* Heavy Iron Banding */}
+              {[0.5, 1.7].map((by) => (
+                <mesh key={`kband-${by}`} position={[0, by, 0.07]} castShadow>
+                  <boxGeometry args={[0.58, 0.12, 0.06]} />
+                  <meshStandardMaterial color="#2d2f33" roughness={0.5} metalness={0.7} flatShading />
+                </mesh>
+              ))}
+              {/* Iron Ring Handle / Door Knob */}
+              <mesh position={[-side * 0.2, 1.1, 0.1]} castShadow>
+                <sphereGeometry args={[0.08, 6, 5]} />
+                <meshStandardMaterial color="#2d2f33" roughness={0.4} metalness={0.7} flatShading />
+              </mesh>
+            </group>
+          ))}
+        </group>
+
+        {/* Upper Level Windows */}
         <mesh position={[0, 4.8, 2.02]} castShadow>
           <boxGeometry args={[0.5, 0.8, 0.08]} />
           <meshStandardMaterial color={PALETTE.window} roughness={0.1} metalness={0.2} flatShading />
