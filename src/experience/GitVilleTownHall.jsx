@@ -32,7 +32,7 @@ const ConeRoof = ({ position, radius = 1.2, height = 2, color = '#c0392b' }) => 
 );
 
 // Cylindrical tower with stone bands and cone roof
-const Tower = ({ position, radius = 1.1, height = 8, roofColor = '#c0392b' }) => (
+const Tower = ({ position, radius = 1.1, height = 8, roofColor = '#c0392b', doorAngle = null }) => (
   <group position={position}>
     {/* Main cylinder */}
     <mesh position={[0, height / 2, 0]} castShadow receiveShadow>
@@ -81,6 +81,31 @@ const Tower = ({ position, radius = 1.1, height = 8, roofColor = '#c0392b' }) =>
       <sphereGeometry args={[0.15, 5, 4]} />
       <meshStandardMaterial color="#f0c030" metalness={0.6} roughness={0.3} flatShading />
     </mesh>
+    {/* Tower Door if facing a bridge */}
+    {doorAngle !== null && (
+      <group rotation={[0, -doorAngle + Math.PI / 2, 0]}>
+        <group position={[0, 0, radius + 0.02]}>
+          <mesh position={[0, 1.0, 0]} castShadow receiveShadow>
+            <boxGeometry args={[0.7, 1.9, 0.12]} />
+            <meshStandardMaterial color={PALETTE.stoneDark} roughness={0.9} flatShading />
+          </mesh>
+          <mesh position={[0, 0.95, 0.04]} castShadow receiveShadow>
+            <boxGeometry args={[0.54, 1.75, 0.1]} />
+            <meshStandardMaterial color="#422d1d" roughness={0.85} flatShading />
+          </mesh>
+          {[-0.15, 0.15].map((px) => (
+            <mesh key={`tplank-${px}`} position={[px, 0.95, 0.08]} castShadow>
+              <boxGeometry args={[0.18, 1.7, 0.04]} />
+              <meshStandardMaterial color="#543a26" roughness={0.85} flatShading />
+            </mesh>
+          ))}
+          <mesh position={[-0.15, 0.95, 0.11]} castShadow>
+            <sphereGeometry args={[0.06, 6, 5]} />
+            <meshStandardMaterial color="#2d2f33" roughness={0.4} metalness={0.7} flatShading />
+          </mesh>
+        </group>
+      </group>
+    )}
     {/* Arrow slits */}
     {[0, Math.PI / 2, Math.PI, -Math.PI / 2].map((angle, i) => {
       const r2 = radius + 0.02;
@@ -602,12 +627,13 @@ export default function GitVilleTownHall({
             radius={0.75}
             height={4.5}
             roofColor={outerRoofColors[i]}
+            doorAngle={i === 0 ? 0 : i === 3 ? Math.PI : null}
           />
         ))}
 
         {/* ── OUTER PERIMETER WALLS ── */}
         {midAngles.map((angle, i) => {
-          if (i === 1) return null;
+          if (i === 1 || i === 4) return null;
           return (
             <CastleWall
               key={`outer-wall-${i}`}
@@ -620,7 +646,7 @@ export default function GitVilleTownHall({
           );
         })}
 
-        {/* Front outer walls (Z+) — split for gate access */}
+        {/* Front outer walls (Z+) — split for South gate access */}
         <CastleWall
           position={[-3.65, 0.5, outerRm]}
           rotation={[0, 0, 0]}
@@ -636,75 +662,88 @@ export default function GitVilleTownHall({
           depth={0.5}
         />
 
-        {/* ── OUTER GATEHOUSE ──
-            midAngles[1] (the +Z side) is deliberately skipped in the wall loop
-            above and replaced by two split walls plus the pillars below. That
-            left a bare 2.9-wide hole reading as a missing wall, so the opening
-            now gets a real gate: stone lintel, arched head and two timber
-            leaves with iron banding. */}
-        {/* The pillars sit at x = ±1.45 and are 0.6 wide, so the clear opening
-            is x ∈ [−1.15, 1.15]. Everything below is sized to that, and the
-            lintel tucks under the pillar caps (which start at y = 3.6). */}
-        <group position={[0, 0.5, outerRm]}>
-          {/* Lintel spanning the pillars, with a crenellated cap */}
-          <mesh position={[0, 3.35, 0]} castShadow receiveShadow>
-            <boxGeometry args={[3.4, 0.45, 0.75]} />
-            <meshStandardMaterial color={PALETTE.stone} roughness={0.85} flatShading />
-          </mesh>
-          {[-0.7, 0, 0.7].map((x) => (
-            <mesh key={`gate-merlon-${x}`} position={[x, 3.8, 0]} castShadow>
-              <boxGeometry args={[0.5, 0.45, 0.6]} />
-              <meshStandardMaterial color={PALETTE.stoneDark} roughness={0.9} flatShading />
+        {/* Back outer walls (Z-) — split for North gate access */}
+        <CastleWall
+          position={[-3.65, 0.5, -outerRm]}
+          rotation={[0, 0, 0]}
+          width={4.4}
+          height={3.2}
+          depth={0.5}
+        />
+        <CastleWall
+          position={[3.65, 0.5, -outerRm]}
+          rotation={[0, 0, 0]}
+          width={4.4}
+          height={3.2}
+          depth={0.5}
+        />
+
+        {/* ── SOUTH & NORTH OUTER GATEHOUSES ── */}
+        {[
+          { pos: [0, 0.5, outerRm], rot: [0, 0, 0], key: 'south' },
+          { pos: [0, 0.5, -outerRm], rot: [0, Math.PI, 0], key: 'north' },
+        ].map((gate) => (
+          <group key={`outer-gate-${gate.key}`} position={gate.pos} rotation={gate.rot}>
+            {/* Lintel spanning the pillars, with a crenellated cap */}
+            <mesh position={[0, 3.35, 0]} castShadow receiveShadow>
+              <boxGeometry args={[3.4, 0.45, 0.75]} />
+              <meshStandardMaterial color={PALETTE.stone} roughness={0.85} flatShading />
             </mesh>
-          ))}
-
-          {/* Arched head behind the doors so the opening has depth */}
-          <Arch position={[0, 0, -0.05]} width={2.3} height={3.05} depth={0.85} />
-
-          {/* Two timber leaves closing the span */}
-          {[-1, 1].map((side) => (
-            <group key={`gate-leaf-${side}`} position={[side * 0.575, 0, 0.16]}>
-              <mesh position={[0, 1.52, 0]} castShadow receiveShadow>
-                <boxGeometry args={[1.14, 3.04, 0.22]} />
-                <meshStandardMaterial color="#5a3f29" roughness={0.9} flatShading />
+            {[-0.7, 0, 0.7].map((x) => (
+              <mesh key={`gate-merlon-${x}`} position={[x, 3.8, 0]} castShadow>
+                <boxGeometry args={[0.5, 0.45, 0.6]} />
+                <meshStandardMaterial color={PALETTE.stoneDark} roughness={0.9} flatShading />
               </mesh>
-              {/* Vertical planking */}
-              {[-0.36, -0.12, 0.12, 0.36].map((px) => (
-                <mesh key={`plank-${px}`} position={[px, 1.52, 0.13]} castShadow>
-                  <boxGeometry args={[0.21, 2.94, 0.06]} />
-                  <meshStandardMaterial color="#6b4a2f" roughness={0.9} flatShading />
-                </mesh>
-              ))}
-              {/* Iron bands + ring handle */}
-              {[0.72, 2.3].map((by) => (
-                <mesh key={`band-${by}`} position={[0, by, 0.19]} castShadow>
-                  <boxGeometry args={[1.08, 0.18, 0.07]} />
-                  <meshStandardMaterial color="#3f4247" roughness={0.5} metalness={0.6} flatShading />
-                </mesh>
-              ))}
-              <mesh position={[-side * 0.4, 1.52, 0.24]} castShadow>
-                <sphereGeometry args={[0.12, 6, 5]} />
-                <meshStandardMaterial color="#3f4247" roughness={0.45} metalness={0.6} flatShading />
-              </mesh>
-            </group>
-          ))}
-        </group>
+            ))}
 
-        {/* Gateway pillars at front entrance */}
-        {[-1.45, 1.45].map((x, idx) => (
-          <group key={`gate-pillar-${idx}`} position={[x, 0.5, outerRm]}>
-            <mesh position={[0, 1.8, 0]} castShadow receiveShadow>
-              <boxGeometry args={[0.6, 3.6, 0.6]} />
-              <meshStandardMaterial color={PALETTE.stoneDark} roughness={0.9} flatShading />
-            </mesh>
-            <mesh position={[0, 3.7, 0]} castShadow>
-              <boxGeometry args={[0.8, 0.2, 0.8]} />
-              <meshStandardMaterial color={PALETTE.stone} roughness={0.8} flatShading />
-            </mesh>
-            <mesh position={[0, 3.95, 0]} castShadow>
-              <sphereGeometry args={[0.2, 5, 4]} />
-              <meshStandardMaterial color="#f0c030" metalness={0.6} roughness={0.3} flatShading />
-            </mesh>
+            {/* Arched head behind the doors so the opening has depth */}
+            <Arch position={[0, 0, -0.05]} width={2.3} height={3.05} depth={0.85} />
+
+            {/* Two timber leaves closing the span */}
+            {[-1, 1].map((side) => (
+              <group key={`gate-leaf-${side}`} position={[side * 0.575, 0, 0.16]}>
+                <mesh position={[0, 1.52, 0]} castShadow receiveShadow>
+                  <boxGeometry args={[1.14, 3.04, 0.22]} />
+                  <meshStandardMaterial color="#5a3f29" roughness={0.9} flatShading />
+                </mesh>
+                {/* Vertical planking */}
+                {[-0.36, -0.12, 0.12, 0.36].map((px) => (
+                  <mesh key={`plank-${px}`} position={[px, 1.52, 0.13]} castShadow>
+                    <boxGeometry args={[0.21, 2.94, 0.06]} />
+                    <meshStandardMaterial color="#6b4a2f" roughness={0.9} flatShading />
+                  </mesh>
+                ))}
+                {/* Iron bands + ring handle */}
+                {[0.72, 2.3].map((by) => (
+                  <mesh key={`band-${by}`} position={[0, by, 0.19]} castShadow>
+                    <boxGeometry args={[1.08, 0.18, 0.07]} />
+                    <meshStandardMaterial color="#3f4247" roughness={0.5} metalness={0.6} flatShading />
+                  </mesh>
+                ))}
+                <mesh position={[-side * 0.4, 1.52, 0.24]} castShadow>
+                  <sphereGeometry args={[0.12, 6, 5]} />
+                  <meshStandardMaterial color="#3f4247" roughness={0.45} metalness={0.6} flatShading />
+                </mesh>
+              </group>
+            ))}
+
+            {/* Gateway pillars at entrance */}
+            {[-1.45, 1.45].map((x, idx) => (
+              <group key={`gate-pillar-${idx}`} position={[x, 0, 0]}>
+                <mesh position={[0, 1.8, 0]} castShadow receiveShadow>
+                  <boxGeometry args={[0.6, 3.6, 0.6]} />
+                  <meshStandardMaterial color={PALETTE.stoneDark} roughness={0.9} flatShading />
+                </mesh>
+                <mesh position={[0, 3.7, 0]} castShadow>
+                  <boxGeometry args={[0.8, 0.2, 0.8]} />
+                  <meshStandardMaterial color={PALETTE.stone} roughness={0.8} flatShading />
+                </mesh>
+                <mesh position={[0, 3.95, 0]} castShadow>
+                  <sphereGeometry args={[0.2, 5, 4]} />
+                  <meshStandardMaterial color="#f0c030" metalness={0.6} roughness={0.3} flatShading />
+                </mesh>
+              </group>
+            ))}
           </group>
         ))}
 
