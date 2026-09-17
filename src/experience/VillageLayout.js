@@ -23,22 +23,30 @@ export const CASTLE_TOWER_R = 5.5;
 const CASTLE_COURTYARD_Y = 1.145;
 
 /**
- * Where the four tower guards stand — on the courtyard floor, just inside each
- * corner tower, facing outward. World space, so they render at village scale
- * rather than being shrunk by the castle group's own 0.3.
+ * Where the castle guards stand — at the major entrances and gates on solid ground,
+ * facing outward along the entrance bridges. World space coordinates.
  */
 export const GUARD_POSTS = [
-  [1, 1], [-1, 1], [-1, -1], [1, -1],
-].map(([sx, sz]) => {
-  const inset = 3.75; // model units from centre, clear of the tower footprint
-  const x = sx * inset * CASTLE_SCALE;
-  const z = sz * inset * CASTLE_SCALE;
-  return {
-    position: [x, CASTLE_COURTYARD_Y * CASTLE_SCALE, z],
-    // Local +X leads, so yaw = atan2(-forwardZ, forwardX) pointing outward.
-    rotY: Math.atan2(-z, x),
-  };
-});
+  // South Main Gate Guards (Left & Right of entrance bridge)
+  {
+    position: [-1.8 * CASTLE_SCALE, 0.55 * CASTLE_SCALE, 10.8 * CASTLE_SCALE],
+    rotY: 0,
+  },
+  {
+    position: [1.8 * CASTLE_SCALE, 0.55 * CASTLE_SCALE, 10.8 * CASTLE_SCALE],
+    rotY: 0,
+  },
+  // North Back Gate Guard
+  {
+    position: [1.8 * CASTLE_SCALE, 0.55 * CASTLE_SCALE, -10.8 * CASTLE_SCALE],
+    rotY: Math.PI,
+  },
+  // East Side Gate Guard
+  {
+    position: [10.8 * CASTLE_SCALE, 0.55 * CASTLE_SCALE, 1.8 * CASTLE_SCALE],
+    rotY: Math.PI / 2,
+  },
+];
 
 // ─────────────────────────────────────────────────────────────────
 // MOAT  (Fix 7 — derived from the castle so it is always concentric)

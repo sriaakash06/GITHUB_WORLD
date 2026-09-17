@@ -31,8 +31,81 @@ const ConeRoof = ({ position, radius = 1.2, height = 2, color = '#c0392b' }) => 
   </mesh>
 );
 
-// Cylindrical tower with stone bands and cone roof
-const Tower = ({ position, radius = 1.1, height = 8, roofColor = '#c0392b', doorAngle = null }) => (
+// 3D Medieval Cannon component
+const Cannon = ({ position, rotation = [0, 0, 0], scale = 1 }) => (
+  <group position={position} rotation={rotation} scale={[scale, scale, scale]}>
+    {/* Wooden Carriage Base */}
+    <mesh position={[0, 0.2, 0]} castShadow receiveShadow>
+      <boxGeometry args={[0.45, 0.22, 0.9]} />
+      <meshStandardMaterial color="#5a3f29" roughness={0.8} flatShading />
+    </mesh>
+    {/* Carriage Side Frames */}
+    {[-0.26, 0.26].map((x, i) => (
+      <mesh key={`frame-${i}`} position={[x, 0.35, 0]} castShadow>
+        <boxGeometry args={[0.08, 0.3, 0.85]} />
+        <meshStandardMaterial color="#422d1d" roughness={0.85} flatShading />
+      </mesh>
+    ))}
+    {/* Wheels (4) */}
+    {[-0.28, 0.28].map((x) =>
+      [-0.28, 0.28].map((z) => (
+        <group key={`wheel-${x}-${z}`} position={[x, 0.18, z]} rotation={[0, 0, Math.PI / 2]}>
+          <mesh castShadow>
+            <cylinderGeometry args={[0.2, 0.2, 0.08, 12]} />
+            <meshStandardMaterial color="#3a271a" roughness={0.9} flatShading />
+          </mesh>
+          <mesh castShadow>
+            <cylinderGeometry args={[0.07, 0.07, 0.1, 8]} />
+            <meshStandardMaterial color="#2f3238" metalness={0.7} roughness={0.4} flatShading />
+          </mesh>
+        </group>
+      ))
+    )}
+    {/* Metal Cannon Barrel (pointed in +X direction, slightly tilted up) */}
+    <group position={[0, 0.4, 0]} rotation={[0, 0, -0.08]}>
+      {/* Main Barrel Tapered Tube */}
+      <mesh position={[0.1, 0, 0]} rotation={[0, 0, -Math.PI / 2]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.14, 0.2, 0.9, 12]} />
+        <meshStandardMaterial color="#2b2d31" metalness={0.8} roughness={0.3} flatShading />
+      </mesh>
+      {/* Cannon Muzzle Ring */}
+      <mesh position={[0.55, 0, 0]} rotation={[0, 0, -Math.PI / 2]} castShadow>
+        <cylinderGeometry args={[0.18, 0.18, 0.1, 12]} />
+        <meshStandardMaterial color="#1f2023" metalness={0.85} roughness={0.25} flatShading />
+      </mesh>
+      {/* Cannon Breech Knob (back end) */}
+      <mesh position={[-0.38, 0, 0]} castShadow>
+        <sphereGeometry args={[0.18, 8, 8]} />
+        <meshStandardMaterial color="#2b2d31" metalness={0.8} roughness={0.3} flatShading />
+      </mesh>
+      {/* Reinforcing Rings */}
+      {[-0.1, 0.15, 0.35].map((rx, idx) => (
+        <mesh key={`ring-${idx}`} position={[rx, 0, 0]} rotation={[0, 0, -Math.PI / 2]} castShadow>
+          <torusGeometry args={[0.16, 0.025, 8, 12]} />
+          <meshStandardMaterial color="#3f4247" metalness={0.85} roughness={0.3} flatShading />
+        </mesh>
+      ))}
+    </group>
+    {/* Cannonballs Stack (Pyramid of 3 black iron balls nearby) */}
+    <group position={[-0.35, 0.08, -0.4]}>
+      <mesh position={[0, 0, 0]} castShadow>
+        <sphereGeometry args={[0.08, 8, 8]} />
+        <meshStandardMaterial color="#1a1a1e" metalness={0.9} roughness={0.2} flatShading />
+      </mesh>
+      <mesh position={[0.14, 0, 0]} castShadow>
+        <sphereGeometry args={[0.08, 8, 8]} />
+        <meshStandardMaterial color="#1a1a1e" metalness={0.9} roughness={0.2} flatShading />
+      </mesh>
+      <mesh position={[0.07, 0.11, 0]} castShadow>
+        <sphereGeometry args={[0.08, 8, 8]} />
+        <meshStandardMaterial color="#1a1a1e" metalness={0.9} roughness={0.2} flatShading />
+      </mesh>
+    </group>
+  </group>
+);
+
+// Cylindrical tower with stone bands and optional cone roof
+const Tower = ({ position, radius = 1.1, height = 8, roofColor = '#c0392b', doorAngle = null, hasRoof = true }) => (
   <group position={position}>
     {/* Main cylinder */}
     <mesh position={[0, height / 2, 0]} castShadow receiveShadow>
@@ -54,6 +127,13 @@ const Tower = ({ position, radius = 1.1, height = 8, roofColor = '#c0392b', door
       <cylinderGeometry args={[radius * 1.15, radius * 1.1, 0.35, 10]} />
       <meshStandardMaterial color={PALETTE.stoneDark} roughness={0.9} flatShading />
     </mesh>
+    {/* Flat stone deck inside battlement when open top */}
+    {!hasRoof && (
+      <mesh position={[0, height + 0.3, 0]} receiveShadow castShadow>
+        <cylinderGeometry args={[radius * 1.08, radius * 1.08, 0.08, 10]} />
+        <meshStandardMaterial color={PALETTE.stoneDark} roughness={0.9} flatShading />
+      </mesh>
+    )}
     {/* Crenellations (merlons around top) */}
     {Array.from({ length: 8 }).map((_, i) => {
       const angle = (i / 8) * Math.PI * 2;
@@ -70,17 +150,21 @@ const Tower = ({ position, radius = 1.1, height = 8, roofColor = '#c0392b', door
       );
     })}
     {/* Conical roof */}
-    <ConeRoof
-      position={[0, height + 1.3, 0]}
-      radius={radius * 1.35}
-      height={2.5}
-      color={roofColor}
-    />
-    {/* Roof finial */}
-    <mesh position={[0, height + 2.7, 0]} castShadow>
-      <sphereGeometry args={[0.15, 5, 4]} />
-      <meshStandardMaterial color="#f0c030" metalness={0.6} roughness={0.3} flatShading />
-    </mesh>
+    {hasRoof && (
+      <>
+        <ConeRoof
+          position={[0, height + 1.3, 0]}
+          radius={radius * 1.35}
+          height={2.5}
+          color={roofColor}
+        />
+        {/* Roof finial */}
+        <mesh position={[0, height + 2.7, 0]} castShadow>
+          <sphereGeometry args={[0.15, 5, 4]} />
+          <meshStandardMaterial color="#f0c030" metalness={0.6} roughness={0.3} flatShading />
+        </mesh>
+      </>
+    )}
     {/* Tower Door if facing a bridge */}
     {doorAngle !== null && (
       <group rotation={[0, -doorAngle + Math.PI / 2, 0]}>
@@ -177,21 +261,28 @@ const CastleWall = ({ position, rotation = [0, 0, 0], width = 6, height = 5, dep
   </group>
 );
 
-// Flag on a pole
-const Flag = ({ position, color, poleHeight = 2.5 }) => (
+// Flag on a pole, physically attached to a castle socket
+const Flag = ({ position, color, poleHeight = 2.2 }) => (
   <group position={position}>
-    <mesh castShadow>
-      <cylinderGeometry args={[0.06, 0.06, poleHeight, 6]} />
+    {/* Base socket on stone */}
+    <mesh position={[0, 0.08, 0]} castShadow>
+      <cylinderGeometry args={[0.09, 0.11, 0.16, 6]} />
+      <meshStandardMaterial color="#3a3d42" metalness={0.6} roughness={0.4} flatShading />
+    </mesh>
+    {/* Pole extending UP from socket */}
+    <mesh position={[0, poleHeight / 2, 0]} castShadow>
+      <cylinderGeometry args={[0.05, 0.05, poleHeight, 6]} />
       <meshStandardMaterial color="#5a4030" flatShading />
     </mesh>
-    <mesh position={[0.55, poleHeight * 0.35, 0]} castShadow>
-      <boxGeometry args={[1, 0.6, 0.05]} />
+    {/* Flag banner near top */}
+    <mesh position={[0.48, poleHeight * 0.82, 0]} castShadow>
+      <boxGeometry args={[0.85, 0.52, 0.04]} />
       <meshStandardMaterial color={color} flatShading />
     </mesh>
-    {/* Pole tip */}
-    <mesh position={[0, poleHeight * 0.52, 0]} castShadow>
-      <sphereGeometry args={[0.1, 5, 4]} />
-      <meshStandardMaterial color="#f0c030" metalness={0.5} roughness={0.3} flatShading />
+    {/* Golden finial tip */}
+    <mesh position={[0, poleHeight + 0.05, 0]} castShadow>
+      <sphereGeometry args={[0.09, 5, 4]} />
+      <meshStandardMaterial color="#f0c030" metalness={0.7} roughness={0.2} flatShading />
     </mesh>
   </group>
 );
@@ -784,6 +875,22 @@ export default function GitVilleTownHall({
             radius={1.2}
             height={8}
             roofColor={towerRoofColors[i]}
+            hasRoof={true}
+          />
+        ))}
+
+        {/* ── DEFENSIVE CANNONS (Mounted on wall embrasures flanking main gates, pointing outward over moat) ── */}
+        {[
+          { pos: [-3.65, 3.25, outerRm], rotY: 0, key: 'south-left' },
+          { pos: [3.65, 3.25, outerRm], rotY: 0, key: 'south-right' },
+          { pos: [-3.65, 3.25, -outerRm], rotY: Math.PI, key: 'north-left' },
+          { pos: [3.65, 3.25, -outerRm], rotY: Math.PI, key: 'north-right' },
+        ].map((c) => (
+          <Cannon
+            key={`cannon-${c.key}`}
+            position={c.pos}
+            rotation={[0, c.rotY, 0]}
+            scale={0.8}
           />
         ))}
 
@@ -883,11 +990,14 @@ export default function GitVilleTownHall({
         <Torch position={[towerR + 0.35, 3.5, -2]} rotation={[0, Math.PI / 2, 0]} lit={isNightMode} />
         <Torch position={[towerR + 0.35, 3.5, 2]} rotation={[0, Math.PI / 2, 0]} lit={isNightMode} />
 
-        {/* ── FLAGS ── */}
-        <Flag position={[cornerPositions[0][0], 11.5, cornerPositions[0][2]]} color="#e8832a" poleHeight={2.5} />
-        <Flag position={[cornerPositions[1][0], 11.5, cornerPositions[1][2]]} color="#f0c030" poleHeight={2.5} />
-        <Flag position={[cornerPositions[2][0], 11.5, cornerPositions[2][2]]} color="#4a90d9" poleHeight={2.5} />
-        <Flag position={[cornerPositions[3][0], 11.5, cornerPositions[3][2]]} color="#d94a4a" poleHeight={2.5} />
+        {/* ── FLAGS (Physically socketed on real castle towers, keep apex and gatehouse pillars) ── */}
+        {/* Central Keep Royal Flag */}
+        <Flag position={[0, 11.8, 0]} color="#e8832a" poleHeight={2.6} />
+        {/* Corner Tower Banners */}
+        <Flag position={[cornerPositions[0][0], 10.7, cornerPositions[0][2]]} color="#e8832a" poleHeight={2.2} />
+        <Flag position={[cornerPositions[1][0], 10.7, cornerPositions[1][2]]} color="#f0c030" poleHeight={2.2} />
+        <Flag position={[cornerPositions[2][0], 10.7, cornerPositions[2][2]]} color="#4a90d9" poleHeight={2.2} />
+        <Flag position={[cornerPositions[3][0], 10.7, cornerPositions[3][2]]} color="#d94a4a" poleHeight={2.2} />
 
         {/* ── COURTYARD DECORATION ── */}
         <group position={[2.5, 1.1, -2]}>
