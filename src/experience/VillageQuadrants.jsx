@@ -459,7 +459,8 @@ export const VillageQuadrants = React.memo(function VillageQuadrants({
         _e.set(0, pose.yaw, 0);
         _q.setFromEuler(_e);
         _p.set(pose.x, pose.bob, pose.z);
-        _s.set(1, 1, 1);
+        const sc = pose.scale || 1;
+        _s.set(sc, sc, sc);
         _charMats[c] = (_charMats[c] || new THREE.Matrix4()).compose(_p, _q, _s);
         _swings[c] = pose.swing;
       }
@@ -516,11 +517,12 @@ export const VillageQuadrants = React.memo(function VillageQuadrants({
       };
     });
 
-    // Guards hold their post — only a slow breathing bob, no walk cycle.
+    // Guards hold their post on tower platforms — standing static with slow breathing bob and 1.25x scale.
     drive(guardRig, guardMeshes, guards, (g, t) => ({
       x: g.position[0],
       z: g.position[2],
       yaw: g.rotY,
+      scale: 1.25,
       bob: g.position[1] + Math.sin(t * 0.7 + g.phase) * 0.008,
       swing: 0,
     }));
@@ -616,17 +618,18 @@ export const VillageQuadrants = React.memo(function VillageQuadrants({
           />
         ))}
 
-      {/* ── Castle guards: one per corner tower, always on ── */}
-      {guardRig.map((group, g) => (
-        <instancedMesh
-          key={`g-${group.key}-${guards.length}`}
-          ref={(el) => (guardMeshes.current[g] = el)}
-          args={[group.geometry, group.material, guards.length * group.parts.length]}
-          castShadow
-          receiveShadow
-          frustumCulled={false}
-        />
-      ))}
+      {/* ── Castle guards ── */}
+      {guards.length > 0 &&
+        guardRig.map((group, g) => (
+          <instancedMesh
+            key={`g-${group.key}-${guards.length}`}
+            ref={(el) => (guardMeshes.current[g] = el)}
+            args={[group.geometry, group.material, guards.length * group.parts.length]}
+            castShadow
+            receiveShadow
+            frustumCulled={false}
+          />
+        ))}
 
       {/* ── Invisible hover/click proxies, one per house ── */}
       <InstancedBatch

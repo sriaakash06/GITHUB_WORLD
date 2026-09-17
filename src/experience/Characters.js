@@ -135,16 +135,21 @@ export const GUARD_PARTS = [
   { geo: 'box', mat: 'detail', role: 'steel', p: [0.082, 0.425, 0], s: [0.022, 0.09, 0.035] },
   { geo: 'cone', mat: 'cloth', role: 'plume', p: [0, 0.545, 0], s: [0.06, 0.09, 0.06] },
 
-  // Spear planted at the right side — taller than the guard, as asked.
-  { geo: 'cyl', mat: 'cloth', role: 'shaft', p: [0.05, 0.36, 0.135], s: [0.026, 0.72, 0.026] },
-  { geo: 'cone', mat: 'detail', role: 'steel', p: [0.05, 0.765, 0.135], s: [0.055, 0.13, 0.055] },
+  // Spear planted firmly at right side — shaft base rests on platform level, height proportioned to clear geometry.
+  { geo: 'cyl', mat: 'cloth', role: 'shaft', p: [0.05, 0.30, 0.08], r: [0, 0, -0.05], s: [0.026, 0.60, 0.026] },
+  { geo: 'cone', mat: 'detail', role: 'steel', p: [0.065, 0.65, 0.08], r: [0, 0, -0.05], s: [0.055, 0.11, 0.055] },
 ];
 
 export const GUARD_PALETTES = [
   {
-    mail: '#8d9298', steel: '#b3b9bf', greaves: '#5c6268', boots: '#33383d',
-    belt: '#3d3a35', tabard: '#8a4b45', plume: '#8a4b45', shaft: '#6b4a2f',
-    skin: '#e0b98d', eye: '#241f1c',
+    mail: '#1f2937', steel: '#374151', greaves: '#111827', boots: '#0f172a',
+    belt: '#7f1d1d', tabard: '#991b1b', plume: '#ef4444', shaft: '#451a03',
+    skin: '#e0b98d', eye: '#000000',
+  },
+  {
+    mail: '#1f2937', steel: '#374151', greaves: '#111827', boots: '#0f172a',
+    belt: '#1e3a8a', tabard: '#1e40af', plume: '#3b82f6', shaft: '#451a03',
+    skin: '#d4a373', eye: '#000000',
   },
 ];
 

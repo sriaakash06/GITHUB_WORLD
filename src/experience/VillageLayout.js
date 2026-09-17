@@ -22,31 +22,8 @@ export const CASTLE_OUTER_R = CASTLE_MODEL_RADIUS * CASTLE_SCALE; // 4.05
 export const CASTLE_TOWER_R = 5.5;
 const CASTLE_COURTYARD_Y = 1.145;
 
-/**
- * Where the castle guards stand — at the major entrances and gates on solid ground,
- * facing outward along the entrance bridges. World space coordinates.
- */
-export const GUARD_POSTS = [
-  // South Main Gate Guards (Left & Right of entrance bridge)
-  {
-    position: [-1.8 * CASTLE_SCALE, 0.55 * CASTLE_SCALE, 10.8 * CASTLE_SCALE],
-    rotY: 0,
-  },
-  {
-    position: [1.8 * CASTLE_SCALE, 0.55 * CASTLE_SCALE, 10.8 * CASTLE_SCALE],
-    rotY: 0,
-  },
-  // North Back Gate Guard
-  {
-    position: [1.8 * CASTLE_SCALE, 0.55 * CASTLE_SCALE, -10.8 * CASTLE_SCALE],
-    rotY: Math.PI,
-  },
-  // East Side Gate Guard
-  {
-    position: [10.8 * CASTLE_SCALE, 0.55 * CASTLE_SCALE, 1.8 * CASTLE_SCALE],
-    rotY: Math.PI / 2,
-  },
-];
+/** Castle guards list (empty — soldiers removed per user request) */
+export const GUARD_POSTS = [];
 
 // ─────────────────────────────────────────────────────────────────
 // MOAT  (Fix 7 — derived from the castle so it is always concentric)

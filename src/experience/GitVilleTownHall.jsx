@@ -313,18 +313,21 @@ const Torch = ({ position, rotation = [0, 0, 0], light = false, lit = true }) =>
 );
 
 /**
- * Side entrance for the curtain wall — stone jambs, lintel and crenellation
- * over a pair of banded timber leaves. Same material language as the main
- * gatehouse, but without its twin towers, so the front stays the grand one.
- *
- * Sized to the 4-wide break the flanking wall segments leave (x ∈ [−2, 2]):
- * jambs occupy ±1.2..2.0, leaving a 2.4 clear opening.
+ * Side entrance for the curtain wall — stone jambs, arch vault, lintel and crenellation
+ * over a pair of open banded timber leaves.
+ * Smooth stone apron platform connects the incoming bridge to the castle interior.
  */
 const SideGate = () => (
   <group>
-    {/* Jambs */}
+    {/* Entrance platform apron connecting bridge to gate threshold */}
+    <mesh position={[0, 0.04, 0.4]} castShadow receiveShadow>
+      <boxGeometry args={[2.4, 0.08, 1.2]} />
+      <meshStandardMaterial color={PALETTE.stoneDark} roughness={0.9} flatShading />
+    </mesh>
+
+    {/* Side Jamb Pillars */}
     {[-1, 1].map((s) => (
-      <mesh key={`jamb-${s}`} position={[s * 1.6, 2.1, 0]} castShadow receiveShadow>
+      <mesh key={`jamb-${s}`} position={[s * 1.4, 2.1, 0]} castShadow receiveShadow>
         <boxGeometry args={[0.8, 4.2, 0.9]} />
         <meshStandardMaterial color={PALETTE.stone} roughness={0.85} flatShading />
       </mesh>
@@ -332,42 +335,42 @@ const SideGate = () => (
 
     {/* Lintel + merlons */}
     <mesh position={[0, 4.45, 0]} castShadow receiveShadow>
-      <boxGeometry args={[4.0, 0.5, 1.0]} />
+      <boxGeometry args={[3.6, 0.5, 1.0]} />
       <meshStandardMaterial color={PALETTE.stoneDark} roughness={0.9} flatShading />
     </mesh>
-    {[-1.2, 0, 1.2].map((x) => (
+    {[-1.1, 0, 1.1].map((x) => (
       <mesh key={`sg-merlon-${x}`} position={[x, 4.95, 0]} castShadow>
-        <boxGeometry args={[0.7, 0.5, 0.85]} />
+        <boxGeometry args={[0.6, 0.5, 0.85]} />
         <meshStandardMaterial color={PALETTE.stone} roughness={0.85} flatShading />
       </mesh>
     ))}
 
-    {/* Arched recess so the opening reads as a tunnel, not a hole */}
-    <Arch position={[0, 0, -0.05]} width={2.4} height={3.5} depth={0.95} />
+    {/* Arched recess tunnel with genuine 3D physical depth */}
+    <Arch position={[0, 0, -0.05]} width={2.2} height={3.5} depth={1.1} />
 
-    {/* Two timber leaves */}
+    {/* Two timber leaves hinged OPEN against the inner jambs for clear walkability */}
     {[-1, 1].map((side) => (
-      <group key={`sg-leaf-${side}`} position={[side * 0.6, 0, 0.2]}>
-        <mesh position={[0, 1.72, 0]} castShadow receiveShadow>
-          <boxGeometry args={[1.19, 3.44, 0.24]} />
+      <group
+        key={`sg-leaf-${side}`}
+        position={[side * 0.95, 0, -0.1]}
+        rotation={[0, -side * 1.1, 0]}
+      >
+        <mesh position={[0, 1.5, 0]} castShadow receiveShadow>
+          <boxGeometry args={[0.9, 3.0, 0.14]} />
           <meshStandardMaterial color="#5a3f29" roughness={0.9} flatShading />
         </mesh>
-        {[-0.38, -0.13, 0.13, 0.38].map((px) => (
-          <mesh key={`sg-plank-${px}`} position={[px, 1.72, 0.14]} castShadow>
-            <boxGeometry args={[0.22, 3.32, 0.06]} />
+        {[-0.26, 0.26].map((px) => (
+          <mesh key={`sg-plank-${px}`} position={[px, 1.5, 0.08]} castShadow>
+            <boxGeometry args={[0.22, 2.9, 0.05]} />
             <meshStandardMaterial color="#6b4a2f" roughness={0.9} flatShading />
           </mesh>
         ))}
-        {[0.8, 2.6].map((by) => (
-          <mesh key={`sg-band-${by}`} position={[0, by, 0.2]} castShadow>
-            <boxGeometry args={[1.13, 0.18, 0.07]} />
+        {[0.6, 2.3].map((by) => (
+          <mesh key={`sg-band-${by}`} position={[0, by, 0.09]} castShadow>
+            <boxGeometry args={[0.88, 0.16, 0.06]} />
             <meshStandardMaterial color="#3f4247" roughness={0.5} metalness={0.6} flatShading />
           </mesh>
         ))}
-        <mesh position={[-side * 0.42, 1.72, 0.25]} castShadow>
-          <sphereGeometry args={[0.12, 6, 5]} />
-          <meshStandardMaterial color="#3f4247" roughness={0.45} metalness={0.6} flatShading />
-        </mesh>
       </group>
     ))}
   </group>
@@ -459,56 +462,56 @@ const Keep = ({ position }) => (
     {/* Keep windows */}
     {[0, Math.PI / 2, Math.PI, -Math.PI / 2].map((ry, i) => (
       <group key={`kw-${i}`} rotation={[0, ry, 0]}>
-        {/* Ground Floor Medieval Entrance Door (South, East, North, West) */}
-        <group position={[0, 0, 2.01]}>
-          {/* Subtle recess shadow plate for embedded physical depth */}
-          <mesh position={[0, 1.25, -0.06]}>
-            <boxGeometry args={[1.65, 2.55, 0.1]} />
-            <meshStandardMaterial color="#0d0d15" roughness={0.95} flatShading />
-          </mesh>
-
-          {/* Heavy Stone Frame / Arch Trim around Doorway */}
-          <mesh position={[0, 1.25, 0.02]} castShadow receiveShadow>
-            <boxGeometry args={[1.7, 2.6, 0.12]} />
+        {/* Ground Floor Medieval Entrance Archway (South, East, North, West) */}
+        <group position={[0, 0, 2.0]}>
+          {/* Stone Entrance Threshold Step */}
+          <mesh position={[0, 0.05, 0.25]} castShadow receiveShadow>
+            <boxGeometry args={[1.7, 0.1, 0.5]} />
             <meshStandardMaterial color={PALETTE.stoneDark} roughness={0.9} flatShading />
           </mesh>
 
-          {/* Top Stone Lintel / Keystone Accent */}
-          <mesh position={[0, 2.55, 0.08]} castShadow>
-            <boxGeometry args={[1.9, 0.3, 0.22]} />
+          {/* Heavy Stone Jamb Pillars */}
+          {[-1, 1].map((s) => (
+            <mesh key={`kjamb-${s}`} position={[s * 0.75, 1.15, 0.1]} castShadow receiveShadow>
+              <boxGeometry args={[0.3, 2.3, 0.45]} />
+              <meshStandardMaterial color={PALETTE.stoneDark} roughness={0.9} flatShading />
+            </mesh>
+          ))}
+
+          {/* Top Stone Keystone Lintel */}
+          <mesh position={[0, 2.4, 0.1]} castShadow>
+            <boxGeometry args={[1.8, 0.3, 0.5]} />
             <meshStandardMaterial color={PALETTE.stone} roughness={0.8} flatShading />
           </mesh>
 
-          {/* Arched Recess Opening */}
-          <Arch position={[0, 0, -0.02]} width={1.3} height={2.3} depth={0.25} />
+          {/* Arched Recess Vault into Keep */}
+          <Arch position={[0, 0, -0.1]} width={1.35} height={2.35} depth={0.65} />
 
-          {/* Double Medieval Wooden / Iron Doors */}
+          {/* Double Medieval Wooden Doors hinged OPEN against jambs */}
           {[-1, 1].map((side) => (
-            <group key={`keep-door-leaf-${side}`} position={[side * 0.31, 0, 0.06]}>
-              {/* Main Dark Wood Leaf Body */}
-              <mesh position={[0, 1.1, 0]} castShadow receiveShadow>
-                <boxGeometry args={[0.6, 2.2, 0.12]} />
+            <group
+              key={`keep-door-leaf-${side}`}
+              position={[side * 0.55, 0, -0.05]}
+              rotation={[0, -side * 1.0, 0]}
+            >
+              <mesh position={[0, 1.05, 0]} castShadow receiveShadow>
+                <boxGeometry args={[0.55, 2.1, 0.1]} />
                 <meshStandardMaterial color="#422d1d" roughness={0.85} flatShading />
               </mesh>
               {/* Vertical Wood Planks */}
-              {[-0.18, 0.18].map((px) => (
-                <mesh key={`kplank-${px}`} position={[px, 1.1, 0.04]} castShadow>
-                  <boxGeometry args={[0.22, 2.14, 0.05]} />
+              {[-0.14, 0.14].map((px) => (
+                <mesh key={`kplank-${px}`} position={[px, 1.05, 0.04]} castShadow>
+                  <boxGeometry args={[0.18, 2.05, 0.05]} />
                   <meshStandardMaterial color="#543a26" roughness={0.85} flatShading />
                 </mesh>
               ))}
-              {/* Heavy Iron Banding */}
-              {[0.5, 1.7].map((by) => (
-                <mesh key={`kband-${by}`} position={[0, by, 0.07]} castShadow>
-                  <boxGeometry args={[0.58, 0.12, 0.06]} />
+              {/* Iron Banding */}
+              {[0.4, 1.6].map((by) => (
+                <mesh key={`kband-${by}`} position={[0, by, 0.06]} castShadow>
+                  <boxGeometry args={[0.54, 0.12, 0.05]} />
                   <meshStandardMaterial color="#2d2f33" roughness={0.5} metalness={0.7} flatShading />
                 </mesh>
               ))}
-              {/* Iron Ring Handle / Door Knob */}
-              <mesh position={[-side * 0.2, 1.1, 0.1]} castShadow>
-                <sphereGeometry args={[0.08, 6, 5]} />
-                <meshStandardMaterial color="#2d2f33" roughness={0.4} metalness={0.7} flatShading />
-              </mesh>
             </group>
           ))}
         </group>
@@ -775,6 +778,12 @@ export default function GitVilleTownHall({
           { pos: [0, 0.5, -outerRm], rot: [0, Math.PI, 0], key: 'north' },
         ].map((gate) => (
           <group key={`outer-gate-${gate.key}`} position={gate.pos} rotation={gate.rot}>
+            {/* Entrance stone apron platform connecting bridge deck smoothly into gate threshold */}
+            <mesh position={[0, 0.04, 0.55]} castShadow receiveShadow>
+              <boxGeometry args={[2.8, 0.08, 1.4]} />
+              <meshStandardMaterial color={PALETTE.stoneDark} roughness={0.9} flatShading />
+            </mesh>
+
             {/* Lintel spanning the pillars, with a crenellated cap */}
             <mesh position={[0, 3.35, 0]} castShadow receiveShadow>
               <boxGeometry args={[3.4, 0.45, 0.75]} />
@@ -787,34 +796,50 @@ export default function GitVilleTownHall({
               </mesh>
             ))}
 
-            {/* Arched head behind the doors so the opening has depth */}
-            <Arch position={[0, 0, -0.05]} width={2.3} height={3.05} depth={0.85} />
+            {/* Arched head tunnel with genuine 3D physical depth */}
+            <Arch position={[0, 0, -0.05]} width={2.4} height={3.15} depth={1.2} />
 
-            {/* Two timber leaves closing the span */}
+            {/* Raised Iron Portcullis Grate near arch head */}
+            <group position={[0, 1.1, 0]}>
+              {[-0.8, -0.4, 0, 0.4, 0.8].map((x, i) => (
+                <mesh key={`vbar-${i}`} position={[x, 1.4, 0]}>
+                  <boxGeometry args={[0.06, 1.6, 0.06]} />
+                  <meshStandardMaterial color="#3f4247" metalness={0.7} roughness={0.3} flatShading />
+                </mesh>
+              ))}
+              {[1.5, 2.1].map((y, i) => (
+                <mesh key={`hbar-${i}`} position={[0, y, 0]}>
+                  <boxGeometry args={[1.7, 0.06, 0.06]} />
+                  <meshStandardMaterial color="#3f4247" metalness={0.7} roughness={0.3} flatShading />
+                </mesh>
+              ))}
+            </group>
+
+            {/* Two timber leaves hinged OPEN against the inner jambs */}
             {[-1, 1].map((side) => (
-              <group key={`gate-leaf-${side}`} position={[side * 0.575, 0, 0.16]}>
-                <mesh position={[0, 1.52, 0]} castShadow receiveShadow>
-                  <boxGeometry args={[1.14, 3.04, 0.22]} />
+              <group
+                key={`gate-leaf-${side}`}
+                position={[side * 1.05, 0, -0.05]}
+                rotation={[0, -side * 1.1, 0]}
+              >
+                <mesh position={[0, 1.4, 0]} castShadow receiveShadow>
+                  <boxGeometry args={[0.95, 2.8, 0.16]} />
                   <meshStandardMaterial color="#5a3f29" roughness={0.9} flatShading />
                 </mesh>
                 {/* Vertical planking */}
-                {[-0.36, -0.12, 0.12, 0.36].map((px) => (
-                  <mesh key={`plank-${px}`} position={[px, 1.52, 0.13]} castShadow>
-                    <boxGeometry args={[0.21, 2.94, 0.06]} />
+                {[-0.28, 0.28].map((px) => (
+                  <mesh key={`plank-${px}`} position={[px, 1.4, 0.09]} castShadow>
+                    <boxGeometry args={[0.22, 2.7, 0.05]} />
                     <meshStandardMaterial color="#6b4a2f" roughness={0.9} flatShading />
                   </mesh>
                 ))}
-                {/* Iron bands + ring handle */}
-                {[0.72, 2.3].map((by) => (
-                  <mesh key={`band-${by}`} position={[0, by, 0.19]} castShadow>
-                    <boxGeometry args={[1.08, 0.18, 0.07]} />
+                {/* Iron bands */}
+                {[0.6, 2.2].map((by) => (
+                  <mesh key={`band-${by}`} position={[0, by, 0.1]} castShadow>
+                    <boxGeometry args={[0.92, 0.16, 0.06]} />
                     <meshStandardMaterial color="#3f4247" roughness={0.5} metalness={0.6} flatShading />
                   </mesh>
                 ))}
-                <mesh position={[-side * 0.4, 1.52, 0.24]} castShadow>
-                  <sphereGeometry args={[0.12, 6, 5]} />
-                  <meshStandardMaterial color="#3f4247" roughness={0.45} metalness={0.6} flatShading />
-                </mesh>
               </group>
             ))}
 
